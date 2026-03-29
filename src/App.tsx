@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent, useInView, useDragControls } from 'motion/react';
+import React, { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent, useInView, useDragControls, useReducedMotion } from 'motion/react';
 import Lenis from 'lenis';
-import ForceGraph2D from 'react-force-graph-2d';
 import { executeTerminalInput, getTerminalBootHistory, getTerminalCompletions } from './terminal/engine';
+import { trackEvent } from './utils/analytics';
 import { 
   Github, 
   Linkedin, 
@@ -33,12 +33,16 @@ import {
   Target,
   Lock,
   Unlock,
+  Copy,
+  Search,
   Info,
   ShoppingBag,
   Briefcase,
   ArrowRight,
   X
 } from 'lucide-react';
+
+const ForceGraph2D = React.lazy(() => import('react-force-graph-2d'));
 
 // --- Custom Icons ---
 const FiverrLogo = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
@@ -868,6 +872,7 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
     if (!input.trim()) return;
 
     const cmd = input.trim();
+    trackEvent('terminal_command', { command: cmd.split(' ')[0]?.toLowerCase() || 'unknown' });
     const newHistory = [...history, { type: 'command', text: cmd } as const];
     setCommandHistory((prev) => [...prev, cmd].slice(-MAX_COMMAND_HISTORY));
     setHistoryCursor(-1);
@@ -990,8 +995,13 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
             className="fixed bottom-6 right-6 z-[200]"
           >
             <button
-              onClick={() => { setIsOpen(true); setIsMinimized(false); }}
+              onClick={() => {
+                setIsOpen(true);
+                setIsMinimized(false);
+                trackEvent('terminal_open', { source: 'floating_button' });
+              }}
               className="glass-panel px-4 py-3 flex items-center gap-3 group border-val-red/30 hover:border-val-red transition-all shadow-[0_0_20px_rgba(255,70,85,0.2)] bg-val-dark/90 backdrop-blur-md"
+              aria-label="Open secure terminal"
             >
               <Terminal size={16} className="text-val-red group-hover:animate-pulse" />
               <span className="text-[10px] font-mono text-val-light/80 uppercase tracking-[0.2em] group-hover:text-white transition-colors">INIT_TERMINAL</span>
@@ -1010,8 +1020,12 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
             className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200]"
           >
             <button
-              onClick={() => setIsMinimized(false)}
+              onClick={() => {
+                setIsMinimized(false);
+                trackEvent('terminal_restore', {});
+              }}
               className="glass-panel px-6 py-2 flex items-center gap-3 border-val-red/40 hover:border-val-red transition-all bg-val-dark/90 backdrop-blur-md"
+              aria-label="Restore secure terminal"
             >
               <Terminal size={14} className="text-val-red" />
               <span className="text-[10px] font-mono text-val-light/80 uppercase tracking-[0.2em]">SECURE_TERMINAL_UPLINK</span>
@@ -1054,16 +1068,23 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
                     const last = commandHistory[commandHistory.length - 1];
                     setIsOpen(false);
                     resetTerminalSession(last);
+                    trackEvent('terminal_close', { lastCommand: last || 'none' });
                   }}
                   className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] transition-colors flex items-center justify-center group"
                   title="Close"
+                  aria-label="Close terminal"
                 >
                   <span className="hidden group-hover:block text-[8px] text-black font-bold leading-none">✕</span>
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setIsMinimized(true); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMinimized(true);
+                    trackEvent('terminal_minimize', {});
+                  }}
                   className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#ffcc00] transition-colors flex items-center justify-center group"
                   title="Minimize"
+                  aria-label="Minimize terminal"
                 >
                   <span className="hidden group-hover:block text-[8px] text-black font-bold leading-none">−</span>
                 </button>
@@ -1071,9 +1092,11 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMaximized((m) => !m);
+                    trackEvent('terminal_toggle_maximize', { next: !isMaximized });
                   }}
                   className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#32d74b] transition-colors flex items-center justify-center group"
                   title="Maximize"
+                  aria-label={isMaximized ? 'Restore terminal size' : 'Maximize terminal'}
                 >
                   <span className="hidden group-hover:block text-[8px] text-black font-bold leading-none">{isMaximized ? '⊡' : '⊞'}</span>
                 </button>
@@ -2526,12 +2549,16 @@ const CareerPage: React.FC = () => {
 };
 
 const SystemsCorePage: React.FC = () => {
+  const prefersReducedMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [hoverNode, setHoverNode] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [showProjects, setShowProjects] = useState(true);
+  const [isSimulationFrozen, setIsSimulationFrozen] = useState(false);
+  const [nodeQuery, setNodeQuery] = useState('');
+  const [nodeQueryFeedback, setNodeQueryFeedback] = useState('');
   const [highlightNodeIds, setHighlightNodeIds] = useState<Set<string>>(new Set());
   const [highlightLinkKeys, setHighlightLinkKeys] = useState<Set<string>>(new Set());
 
@@ -2669,12 +2696,52 @@ const SystemsCorePage: React.FC = () => {
     graphRef.current.d3ReheatSimulation();
   }, [simulationData.graphData]);
 
+  useEffect(() => {
+    if (!graphRef.current) return;
+    if (isSimulationFrozen) {
+      graphRef.current.pauseAnimation?.();
+    } else {
+      graphRef.current.resumeAnimation?.();
+      graphRef.current.d3ReheatSimulation?.();
+    }
+  }, [isSimulationFrozen]);
+
   const getNodeId = (node: any) => (typeof node === 'object' ? node.id : node);
   const makeLinkKey = (sourceId: string, targetId: string) => `${sourceId}=>${targetId}`;
 
   const clearHighlights = () => {
     setHighlightNodeIds(new Set());
     setHighlightLinkKeys(new Set());
+  };
+
+  const focusByNodeQuery = () => {
+    const query = nodeQuery.trim().toLowerCase();
+    if (!query) {
+      setNodeQueryFeedback('Enter a node name to focus.');
+      return;
+    }
+
+    const match = simulationData.graphData.nodes.find((node: any) => {
+      const id = String(node.id || '').toLowerCase();
+      const label = String(node.label || '').toLowerCase();
+      return id.includes(query) || label.includes(query);
+    });
+
+    if (!match) {
+      setNodeQueryFeedback('No matching node found.');
+      trackEvent('simulation_focus_search', { found: false, queryLength: query.length });
+      return;
+    }
+
+    setNodeQueryFeedback(`Focused: ${formatNodeLabel(match.label || match.id)}`);
+    setSelectedNode(match);
+    focusNodeNeighborhood(match);
+    if (graphRef.current && typeof match.x === 'number' && typeof match.y === 'number') {
+      const travelDuration = prefersReducedMotion ? 0 : 700;
+      graphRef.current.centerAt(match.x, match.y, travelDuration);
+      graphRef.current.zoom(match.tier === 'root' ? 2 : 2.6, travelDuration);
+    }
+    trackEvent('simulation_focus_search', { found: true, queryLength: query.length, tier: match.tier || 'unknown' });
   };
 
   const focusNodeNeighborhood = (node: any) => {
@@ -2799,6 +2866,13 @@ const SystemsCorePage: React.FC = () => {
         </div>
         
         {dimensions.width > 0 && (
+          <Suspense
+            fallback={
+              <div className="absolute inset-0 flex items-center justify-center text-[11px] font-mono tracking-[0.2em] uppercase text-val-light/50">
+                Loading simulation engine...
+              </div>
+            }
+          >
           <ForceGraph2D
             ref={graphRef}
             width={dimensions.width}
@@ -2829,9 +2903,11 @@ const SystemsCorePage: React.FC = () => {
             onNodeClick={(node: any) => {
               setSelectedNode(node);
               focusNodeNeighborhood(node);
+              trackEvent('simulation_node_click', { tier: node?.tier || 'unknown', node: String(node?.id || 'unknown') });
               if (graphRef.current && typeof node?.x === 'number' && typeof node?.y === 'number') {
-                graphRef.current.centerAt(node.x, node.y, 700);
-                graphRef.current.zoom(node.tier === 'root' ? 2 : 2.7, 700);
+                const travelDuration = prefersReducedMotion ? 0 : 700;
+                graphRef.current.centerAt(node.x, node.y, travelDuration);
+                graphRef.current.zoom(node.tier === 'root' ? 2 : 2.7, travelDuration);
               }
             }}
             onBackgroundClick={() => {
@@ -2839,8 +2915,8 @@ const SystemsCorePage: React.FC = () => {
               setHoverNode(null);
               clearHighlights();
             }}
-            d3VelocityDecay={0.42}
-            d3AlphaDecay={0.05}
+            d3VelocityDecay={prefersReducedMotion ? 0.5 : 0.42}
+            d3AlphaDecay={prefersReducedMotion ? 0.08 : 0.05}
             linkWidth={(link: any) => {
               const a = String(getNodeId(link.source));
               const b = String(getNodeId(link.target));
@@ -2894,7 +2970,7 @@ const SystemsCorePage: React.FC = () => {
               // Required for hover hit detection
               node.__bckgDimensions = [radius*2, radius*2];
             }}
-            cooldownTicks={90}
+            cooldownTicks={prefersReducedMotion ? 50 : 90}
             enableNodeDrag={true}
             enablePanInteraction={true}
             enableZoomInteraction={true}
@@ -2906,6 +2982,7 @@ const SystemsCorePage: React.FC = () => {
               ctx.fill();
             }}
           />
+          </Suspense>
         )}
 
         {(hoverNode || selectedNode) && (
@@ -2928,12 +3005,48 @@ const SystemsCorePage: React.FC = () => {
         )}
 
         <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+          <div className="glass-panel border border-val-border px-3 py-2 w-[260px]">
+            <label htmlFor="node-search" className="text-[9px] font-mono text-val-light/60 uppercase tracking-[0.2em] block mb-1">
+              Find Node
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="node-search"
+                value={nodeQuery}
+                onChange={(e) => {
+                  setNodeQuery(e.target.value);
+                  if (nodeQueryFeedback) setNodeQueryFeedback('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    focusByNodeQuery();
+                  }
+                }}
+                className="flex-1 bg-val-dark/70 border border-val-border px-2 py-1 text-[10px] font-mono text-val-light outline-none focus:border-val-red"
+                placeholder="e.g. FastAPI"
+                aria-label="Search and focus a simulation node"
+              />
+              <button
+                onClick={focusByNodeQuery}
+                className="px-2 py-1 border border-val-border hover:border-val-red text-[10px] font-mono uppercase tracking-[0.1em]"
+                aria-label="Focus matching node"
+              >
+                <Search size={12} className="text-val-light/70" />
+              </button>
+            </div>
+            {nodeQueryFeedback && (
+              <div className="text-[9px] font-mono text-val-light/60 mt-2" aria-live="polite">{nodeQueryFeedback}</div>
+            )}
+          </div>
+
           <button
             onClick={() => {
               setShowProjects((prev) => !prev);
               setSelectedNode(null);
               setHoverNode(null);
               clearHighlights();
+              trackEvent('simulation_toggle_projects', { visible: !showProjects });
             }}
             className="px-3 py-2 text-[10px] font-mono tracking-[0.2em] uppercase glass-panel border border-val-border hover:border-val-red transition-colors"
           >
@@ -2941,11 +3054,23 @@ const SystemsCorePage: React.FC = () => {
           </button>
           <button
             onClick={() => {
+              const next = !isSimulationFrozen;
+              setIsSimulationFrozen(next);
+              trackEvent('simulation_toggle_freeze', { frozen: next });
+            }}
+            className="px-3 py-2 text-[10px] font-mono tracking-[0.2em] uppercase glass-panel border border-val-border hover:border-val-red transition-colors"
+          >
+            {isSimulationFrozen ? 'RESUME_SIMULATION' : 'FREEZE_SIMULATION'}
+          </button>
+          <button
+            onClick={() => {
               if (!graphRef.current) return;
-              graphRef.current.zoomToFit(700, 70);
+              graphRef.current.zoomToFit(prefersReducedMotion ? 0 : 700, 70);
               setSelectedNode(null);
               setHoverNode(null);
+              setNodeQueryFeedback('');
               clearHighlights();
+              trackEvent('simulation_reset_view', {});
             }}
             className="px-3 py-2 text-[10px] font-mono tracking-[0.2em] uppercase glass-panel border border-val-border hover:border-val-red transition-colors"
           >
@@ -2975,6 +3100,87 @@ const SystemsCorePage: React.FC = () => {
 
 
 const ContactPage: React.FC = () => {
+  const EMAIL = 'rushildhube1305@gmail.com';
+  const LINKEDIN_URL = 'https://www.linkedin.com/in/rushildhube';
+  const FIVERR_URL = 'https://www.fiverr.com/rushildhube';
+  const FORM_RATE_LIMIT_MS = 45_000;
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    message: '',
+    website: '',
+  });
+  const [formFeedback, setFormFeedback] = useState('');
+  const [formStatus, setFormStatus] = useState<'idle' | 'error' | 'success'>('idle');
+  const [copiedHint, setCopiedHint] = useState('');
+  const [formStartTs] = useState(() => Date.now());
+
+  const copyToClipboard = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedHint(`${label} copied`);
+      setTimeout(() => setCopiedHint(''), 1600);
+      trackEvent('contact_copy', { label });
+    } catch {
+      setCopiedHint('Clipboard unavailable');
+      setTimeout(() => setCopiedHint(''), 1600);
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (formData.website.trim()) {
+      setFormStatus('error');
+      setFormFeedback('Transmission blocked. Please retry via direct email channel.');
+      trackEvent('contact_honeypot_block', {});
+      return;
+    }
+
+    if (Date.now() - formStartTs < 1200) {
+      setFormStatus('error');
+      setFormFeedback('Too fast. Please review and submit again.');
+      trackEvent('contact_fast_submit_block', {});
+      return;
+    }
+
+    const lastSubmit = Number(window.localStorage.getItem('contact:last-submit') || '0');
+    const now = Date.now();
+    const remainingMs = FORM_RATE_LIMIT_MS - (now - lastSubmit);
+    if (remainingMs > 0) {
+      setFormStatus('error');
+      setFormFeedback(`Rate limit active. Try again in ${Math.ceil(remainingMs / 1000)}s.`);
+      trackEvent('contact_rate_limited', { secondsRemaining: Math.ceil(remainingMs / 1000) });
+      return;
+    }
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      setFormStatus('error');
+      setFormFeedback('Please complete all required fields.');
+      return;
+    }
+
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim());
+    if (!emailValid) {
+      setFormStatus('error');
+      setFormFeedback('Please enter a valid email address.');
+      return;
+    }
+
+    window.localStorage.setItem('contact:last-submit', String(now));
+    trackEvent('contact_submit', { hasMessage: formData.message.length > 0 });
+
+    const subject = encodeURIComponent(`Portfolio inquiry from ${formData.name.trim()}`);
+    const body = encodeURIComponent(
+      `Name: ${formData.name.trim()}\nEmail: ${formData.email.trim()}\n\nMessage:\n${formData.message.trim()}`
+    );
+    window.location.href = `mailto:${EMAIL}?subject=${subject}&body=${body}`;
+
+    setFormStatus('success');
+    setFormFeedback('Email client opened. If it did not open, use the copy buttons above.');
+    setFormData({ name: '', email: '', message: '', website: '' });
+  };
+
   return (
     <div className="min-h-screen pt-40 pb-20 px-6 md:px-12 lg:px-24 w-full flex items-center justify-center overflow-x-hidden">
       <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-start">
@@ -2992,15 +3198,28 @@ const ContactPage: React.FC = () => {
           </p>
 
           <div className="space-y-10">
-            <a href="mailto:rushildhube1305@gmail.com" className="flex items-start gap-8 group">
+            <div className="flex items-start gap-8 group">
               <div className="w-16 h-16 glass-panel flex items-center justify-center group-hover:border-val-red transition-colors">
                 <Mail className="text-val-red" size={28} />
               </div>
-              <div>
+              <div className="flex-1">
                 <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] mb-2">Direct Channel</div>
-                <div className="text-2xl font-display font-black tracking-tight italic group-hover:text-val-red transition-colors">rushildhube1305@gmail.com</div>
+                <div className="text-2xl font-display font-black tracking-tight italic group-hover:text-val-red transition-colors">{EMAIL}</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={`mailto:${EMAIL}`} className="px-3 py-1 border border-val-border text-[10px] font-mono uppercase tracking-[0.2em] hover:border-val-red transition-colors">
+                    Open Email
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(EMAIL, 'email')}
+                    className="px-3 py-1 border border-val-border text-[10px] font-mono uppercase tracking-[0.2em] hover:border-val-red transition-colors inline-flex items-center gap-2"
+                    aria-label="Copy email address"
+                  >
+                    <Copy size={12} /> Copy Email
+                  </button>
+                </div>
               </div>
-            </a>
+            </div>
             <div className="flex items-start gap-8 group">
               <div className="w-16 h-16 glass-panel flex items-center justify-center group-hover:border-val-red transition-colors">
                 <Globe className="text-val-red" size={28} />
@@ -3010,15 +3229,63 @@ const ContactPage: React.FC = () => {
                 <div className="text-2xl font-display font-black tracking-tight italic">Pune, Maharashtra, India</div>
               </div>
             </div>
-            <a href="https://www.fiverr.com/rushildhube" target="_blank" className="flex items-start gap-8 group cursor-pointer">
+            <div className="flex items-start gap-8 group">
+              <div className="w-16 h-16 glass-panel flex items-center justify-center group-hover:border-val-red transition-colors">
+                <Linkedin className="text-val-red" size={28} />
+              </div>
+              <div className="flex-1">
+                <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] mb-2">Profile Link</div>
+                <div className="text-2xl font-display font-black tracking-tight italic break-all">linkedin.com/in/rushildhube</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a
+                    href={LINKEDIN_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1 border border-val-border text-[10px] font-mono uppercase tracking-[0.2em] hover:border-val-red transition-colors"
+                    onClick={() => trackEvent('contact_open_profile', { channel: 'linkedin' })}
+                  >
+                    Open Profile
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(LINKEDIN_URL, 'profile_link')}
+                    className="px-3 py-1 border border-val-border text-[10px] font-mono uppercase tracking-[0.2em] hover:border-val-red transition-colors inline-flex items-center gap-2"
+                    aria-label="Copy profile link"
+                  >
+                    <Copy size={12} /> Copy Profile Link
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-8 group">
               <div className="w-16 h-16 glass-panel flex items-center justify-center group-hover:border-val-red transition-colors">
                 <FiverrLogo className="text-val-red" size={32} />
               </div>
-              <div>
+              <div className="flex-1">
                 <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] mb-2">Freelance Marketplace</div>
-                <div className="text-2xl font-display font-black tracking-tight italic hover:text-val-red transition-colors">fiverr.com/rushildhube</div>
+                <div className="text-2xl font-display font-black tracking-tight italic break-all">fiverr.com/rushildhube</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a
+                    href={FIVERR_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1 border border-val-border text-[10px] font-mono uppercase tracking-[0.2em] hover:border-val-red transition-colors"
+                    onClick={() => trackEvent('contact_open_profile', { channel: 'fiverr' })}
+                  >
+                    Open Fiverr
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(FIVERR_URL, 'fiverr_link')}
+                    className="px-3 py-1 border border-val-border text-[10px] font-mono uppercase tracking-[0.2em] hover:border-val-red transition-colors inline-flex items-center gap-2"
+                    aria-label="Copy Fiverr link"
+                  >
+                    <Copy size={12} /> Copy Fiverr Link
+                  </button>
+                </div>
               </div>
-            </a>
+            </div>
+            <div className="text-[11px] font-mono text-val-light/45" aria-live="polite">{copiedHint}</div>
           </div>
         </div>
 
@@ -3026,33 +3293,72 @@ const ContactPage: React.FC = () => {
           <div className="scanline"></div>
           <div className="absolute top-0 left-0 w-2 h-full bg-val-red"></div>
           
-          <form className="space-y-8 md:space-y-10" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-8 md:space-y-10" onSubmit={handleFormSubmit}>
             <div className="space-y-4">
-              <label className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.5em]">Agent Name</label>
+              <label htmlFor="agent-name" className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.5em]">Agent Name</label>
               <input 
+                id="agent-name"
                 type="text" 
+                value={formData.name}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                 className="w-full bg-val-dark/40 border-b-2 border-val-border p-6 text-2xl font-display font-black italic outline-none focus:border-val-red transition-colors placeholder:text-val-light/5"
                 placeholder="IDENTIFY_YOURSELF..."
+                autoComplete="name"
+                required
               />
             </div>
             <div className="space-y-4">
-              <label className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.5em]">Comm Channel</label>
+              <label htmlFor="comm-email" className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.5em]">Comm Channel</label>
               <input 
+                id="comm-email"
                 type="email" 
+                value={formData.email}
+                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                 className="w-full bg-val-dark/40 border-b-2 border-val-border p-6 text-2xl font-display font-black italic outline-none focus:border-val-red transition-colors placeholder:text-val-light/5"
                 placeholder="EMAIL_ADDRESS..."
+                autoComplete="email"
+                required
               />
             </div>
             <div className="space-y-4">
-              <label className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.5em]">Message Payload</label>
+              <label htmlFor="payload-message" className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.5em]">Message Payload</label>
               <textarea 
+                id="payload-message"
                 rows={4}
+                value={formData.message}
+                onChange={(e) => setFormData((prev) => ({ ...prev, message: e.target.value }))}
                 className="w-full bg-val-dark/40 border-b-2 border-val-border p-6 text-2xl font-display font-black italic outline-none focus:border-val-red transition-colors placeholder:text-val-light/5 resize-none"
                 placeholder="TRANSMISSION_DATA..."
+                required
               />
             </div>
+
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="website-field">Website</label>
+              <input
+                id="website-field"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={formData.website}
+                onChange={(e) => setFormData((prev) => ({ ...prev, website: e.target.value }))}
+              />
+            </div>
+
+            <div className="text-[10px] font-mono text-val-light/45 uppercase tracking-[0.2em]">
+              Anti-spam enabled: honeypot + client-side rate hint (1 transmission per 45s).
+            </div>
+
+            {formFeedback && (
+              <div
+                className={`text-[11px] font-mono ${formStatus === 'error' ? 'text-val-red' : 'text-green-400'}`}
+                aria-live="polite"
+              >
+                {formFeedback}
+              </div>
+            )}
             
-            <button className="val-button val-button-primary w-full py-8 text-2xl group">
+            <button type="submit" className="val-button val-button-primary w-full py-8 text-2xl group">
               <span className="relative z-10 flex items-center justify-center gap-6 italic">
                 SEND_TRANSMISSION
                 <Send size={28} className="group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform" />
@@ -3081,6 +3387,8 @@ export default function App() {
   const executeNav = (p: Page) => {
     if (p === 'mission-detail') return;
 
+    trackEvent('navigate_section', { page: p });
+
     if (selectedProject) {
       setSelectedProject(null);
     }
@@ -3098,8 +3406,22 @@ export default function App() {
     executeNav('missions');
   };
 
+  useEffect(() => {
+    if (appState !== 'ready') return;
+    trackEvent('page_view', {
+      section: selectedProject ? 'mission-detail' : currentPage,
+      hasProjectDetail: Boolean(selectedProject),
+    });
+  }, [appState, currentPage, selectedProject]);
+
   return (
     <div className="min-h-screen bg-val-dark text-val-light selection:bg-val-red selection:text-white relative font-sans overflow-x-hidden">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-[100000] focus:left-4 focus:top-4 focus:bg-val-red focus:text-white focus:px-3 focus:py-2"
+      >
+        Skip to main content
+      </a>
       <CustomCursor />
       <SmoothScroll>
         <AnimatePresence mode="wait">
@@ -3130,7 +3452,7 @@ export default function App() {
               <HUDOverlay />
               <TerminalOverlay setPage={executeNav} />
               
-              <main className="relative z-10 w-full">
+              <main id="main-content" className="relative z-10 w-full" tabIndex={-1}>
                 <AnimatePresence mode="wait">
                   {selectedProject ? (
                     <motion.div
