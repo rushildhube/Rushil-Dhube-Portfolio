@@ -142,3 +142,25 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.underline-slide {
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+}
+.underline-slide::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  transform: scaleX(0);
+  height: 1px;
+  bottom: -2px;
+  left: 0;
+  background-color: currentColor;
+  transform-origin: bottom right;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.underline-slide:hover::after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent, useInView } from 'motion/react';
 import Lenis from 'lenis';
 import { 
   Github, 
@@ -281,9 +281,11 @@ const CustomCursor: React.FC = () => {
           y: mousePos.y - 20,
           scale: isHovering ? 1.5 : 1,
           rotate: isHovering ? 90 : 0,
+          backgroundColor: isHovering ? 'rgba(255, 70, 85, 0.1)' : 'transparent',
+          borderColor: isHovering ? 'rgba(255, 70, 85, 0.8)' : 'rgba(255, 70, 85, 0.3)'
         }}
         transition={{ type: 'spring', damping: 20, stiffness: 150, mass: 0.8 }}
-        className="w-10 h-10 border border-val-red/30 rounded-sm fixed top-0 left-0 flex items-center justify-center"
+        className="w-10 h-10 border border-val-red/30 rounded-sm fixed top-0 left-0 flex items-center justify-center backdrop-blur-sm"
       >
         <div className="w-1 h-1 bg-val-red/50 absolute top-0 left-1/2 -translate-x-1/2"></div>
         <div className="w-1 h-1 bg-val-red/50 absolute bottom-0 left-1/2 -translate-x-1/2"></div>
@@ -342,25 +344,26 @@ const Magnetic: React.FC<{ children: React.ReactNode, strength?: number }> = ({ 
   );
 };
 
-const StaggeredText: React.FC<{ text: string, className?: string, delay?: number }> = ({ text, className = "", delay = 0 }) => {
-  const words = text.split(" ");
+const StaggeredText: React.FC<{ text: string, className?: string, delay?: number, by?: 'word' | 'char' }> = ({ text, className = "", delay = 0, by = 'word' }) => {
+  const items = by === 'word' ? text.split(" ") : text.split("");
   
   return (
-    <span className={`flex flex-wrap ${className}`}>
-      {words.map((word, i) => (
-        <motion.span
-          key={i}
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ 
-            duration: 0.5, 
-            delay: delay + (i * 0.1),
-            ease: [0.22, 1, 0.36, 1]
-          }}
-          className="mr-[0.25em]"
-        >
-          {word}
-        </motion.span>
+    <span className={`inline-flex flex-wrap ${className}`}>
+      {items.map((item, i) => (
+        <span key={i} className={`inline-block overflow-hidden ${by === 'word' ? 'mr-[0.25em]' : ''}`}>
+          <motion.span
+            initial={{ y: "100%", opacity: 0, rotateX: 45 }}
+            animate={{ y: 0, opacity: 1, rotateX: 0 }}
+            transition={{ 
+              duration: 0.6, 
+              delay: delay + (i * (by === 'word' ? 0.1 : 0.03)),
+              ease: [0.22, 1, 0.36, 1]
+            }}
+            className="inline-block origin-bottom"
+          >
+            {item === " " ? "\u00A0" : item}
+          </motion.span>
+        </span>
       ))}
     </span>
   );
@@ -435,11 +438,57 @@ const TextReveal: React.FC<{ text: string, className?: string }> = ({ text, clas
   );
 };
 
+const MaskReveal: React.FC<{ children: React.ReactNode, delay?: number, direction?: 'up' | 'down' | 'left' | 'right', className?: string }> = ({ children, delay = 0, direction = 'up', className = "" }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+  
+  const variants = {
+    hidden: { clipPath: direction === 'up' ? "inset(100% 0 0 0)" : direction === 'down' ? "inset(0 0 100% 0)" : direction === 'left' ? "inset(0 100% 0 0)" : "inset(0 0 0 100%)" },
+    visible: { clipPath: "inset(0 0 0 0)" }
+  };
+
+  return (
+    <motion.div
+      ref={ref}
+      variants={variants}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+      transition={{ duration: 1, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 // --- Components ---
 
 const Navbar: React.FC<{ onToggle: () => void, isOpen: boolean, setPage: (p: Page) => void }> = ({ onToggle, isOpen, setPage }) => {
+  const { scrollY } = useScroll();
+  const [hidden, setHidden] = useState(false);
+  const [lastY, setLastY] = useState(0);
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    if (latest < 50) {
+      setHidden(false);
+    } else if (latest > lastY) {
+      setHidden(true); // scrolling down
+    } else {
+      setHidden(false); // scrolling up
+    }
+    setLastY(latest);
+  });
+
   return (
-    <nav className="fixed top-0 left-0 w-full z-[120] h-20 flex items-center justify-between px-12 pointer-events-none">
+    <motion.nav 
+      variants={{
+        visible: { y: 0 },
+        hidden: { y: "-100%" }
+      }}
+      animate={hidden && !isOpen ? "hidden" : "visible"}
+      transition={{ duration: 0.35, ease: "easeInOut" }}
+      className="fixed top-0 left-0 w-full z-[120] h-20 flex items-center justify-between px-6 md:px-12 pointer-events-none"
+    >
       <div className="flex items-center gap-4 cursor-pointer group pointer-events-auto" onClick={() => { setPage('home'); if(isOpen) onToggle(); }}>
         <div className="w-10 h-10 bg-val-red flex items-center justify-center rotate-45 transition-transform group-hover:rotate-[135deg]">
           <svg viewBox="0 0 100 100" className="w-6 h-6 -rotate-45 text-val-dark" fill="currentColor">
@@ -471,7 +520,7 @@ const Navbar: React.FC<{ onToggle: () => void, isOpen: boolean, setPage: (p: Pag
         />
         <div className="absolute inset-0 bg-val-red/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
       </button>
-    </nav>
+    </motion.nav>
   );
 };
 
@@ -552,7 +601,7 @@ const NavOverlay: React.FC<{ isOpen: boolean, activePage: Page, setPage: (p: Pag
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-0 z-[110] bg-val-dark/95 backdrop-blur-xl flex flex-col pt-32 px-12 md:px-24 overflow-y-auto"
+          className="fixed inset-0 z-[110] bg-val-dark/95 backdrop-blur-xl flex flex-col pt-32 px-12 md:px-24 overflow-y-auto overflow-x-hidden"
           data-lenis-prevent
         >
           <div className="absolute top-0 right-0 w-1/3 h-full bg-val-red/5 skew-x-[-15deg] translate-x-1/2 pointer-events-none"></div>
@@ -576,15 +625,15 @@ const NavOverlay: React.FC<{ isOpen: boolean, activePage: Page, setPage: (p: Pag
           <div className="mt-auto pb-12 flex flex-col md:flex-row justify-between items-end gap-8">
             <div className="flex gap-12">
               <a href="https://github.com/rushildhube" target="_blank" className="group">
-                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors">GitHub</div>
+                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors underline-slide pb-1">GitHub</div>
                 <Github size={24} className="text-val-light/40 group-hover:text-white transition-colors" />
               </a>
               <a href="https://linkedin.com/in/rushildhube" target="_blank" className="group">
-                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors">LinkedIn</div>
+                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors underline-slide pb-1">LinkedIn</div>
                 <Linkedin size={24} className="text-val-light/40 group-hover:text-white transition-colors" />
               </a>
               <a href="https://www.fiverr.com/rushildhube" target="_blank" className="group">
-                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors">Fiverr</div>
+                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors underline-slide pb-1">Fiverr</div>
                 <ShoppingBag size={24} className="text-val-light/40 group-hover:text-white transition-colors" />
               </a>
             </div>
@@ -615,21 +664,23 @@ const LoadingScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => 
       className="fixed inset-0 z-[100] bg-val-dark flex flex-col items-center justify-center p-12"
     >
       <div className="w-full max-w-3xl">
-        <div className="flex justify-between items-end mb-6">
-          <div className="space-y-2">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: 40 }}
-              className="h-1 bg-val-red"
-            />
-            <h2 className="text-val-red font-display font-black text-sm tracking-[0.4em] uppercase">INITIALIZING_CORE_SYSTEMS</h2>
-            <h1 className="text-6xl font-display font-black tracking-tighter italic">RUSHIL // PORTFOLIO</h1>
+        <MaskReveal direction="up" delay={0.2}>
+          <div className="flex justify-between items-end mb-6">
+            <div className="space-y-2">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: 40 }}
+                className="h-1 bg-val-red"
+              />
+              <h2 className="text-val-red font-display font-black text-sm tracking-[0.4em] uppercase">INITIALIZING_CORE_SYSTEMS</h2>
+              <h1 className="text-6xl font-display font-black tracking-tighter italic">RUSHIL // PORTFOLIO</h1>
+            </div>
+            <div className="text-val-light/20 font-mono text-[10px] uppercase tracking-[0.3em] text-right">
+              EST_LOAD: 0.24s<br />
+              VERSION: 4.0.1
+            </div>
           </div>
-          <div className="text-val-light/20 font-mono text-[10px] uppercase tracking-[0.3em] text-right">
-            EST_LOAD: 0.24s<br />
-            VERSION: 4.0.1
-          </div>
-        </div>
+        </MaskReveal>
         
         <div className="h-1 w-full bg-val-light/5 relative overflow-hidden">
           <motion.div 
@@ -815,7 +866,7 @@ const GlitchText: React.FC<{ children: string, className?: string }> = ({ childr
 
 const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
   return (
-    <div className="min-h-screen flex flex-col xl:flex-row items-center justify-center gap-20 px-12 pt-24 pb-12">
+    <div className="min-h-screen flex flex-col xl:flex-row items-center justify-center gap-12 lg:gap-20 px-6 md:px-12 lg:px-24 mx-auto max-w-7xl pt-32 pb-12 w-full">
       {/* Left: Profile Card */}
       <motion.div 
         initial={{ x: -100, opacity: 0 }}
@@ -843,19 +894,19 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
             </div>
           </div>
 
-          <h1 className="text-8xl font-display font-black leading-[0.85] mb-6 tracking-tighter">
-            <GlitchText>RUSHIL</GlitchText><br />
-            <StaggeredText text="DHUBE" delay={0.5} />
+          <h1 className="text-8xl md:text-[8.5rem] font-display font-black leading-[0.85] mb-6 tracking-tighter">
+            <GlitchText className="block">RUSHIL</GlitchText>
+            <StaggeredText text="DHUBE" delay={0.5} by="char" className="block" />
           </h1>
           
-          <div className="flex items-center gap-4 mb-8">
-            <div className="h-px flex-1 bg-val-border"></div>
+          <div className="flex items-center w-full gap-4 mb-8">
+            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.8 }} className="h-px flex-1 bg-val-border origin-left" />
             <StaggeredText 
               text="AI & ML ENGINEER" 
-              className="text-xl font-display font-black text-val-red tracking-[0.2em] italic"
+              className="text-lg md:text-2xl font-display font-black text-val-red tracking-[0.2em] italic whitespace-nowrap"
               delay={0.8}
             />
-            <div className="h-px flex-1 bg-val-border"></div>
+            <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.8 }} className="h-px flex-1 bg-val-border origin-right" />
           </div>
 
           <div className="text-val-light/60 text-lg leading-relaxed mb-10 max-w-lg">
@@ -866,10 +917,10 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
           
           <div className="flex flex-col sm:flex-row gap-6">
             <Magnetic strength={0.2}>
-              <button className="val-button val-button-primary flex-1 flex items-center justify-center gap-3 group px-8">
+              <a href="/Master_CV.pdf" download="Master_CV.pdf" className="val-button val-button-primary flex-1 flex items-center justify-center gap-3 group px-8 w-full">
                 <FileText size={20} className="group-hover:scale-110 transition-transform" />
                 DOWNLOAD_DOSSIER
-              </button>
+              </a>
             </Magnetic>
             <div className="flex gap-4">
               <Magnetic strength={0.3}>
@@ -984,10 +1035,10 @@ const AgentsPage: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState(agents[0]);
 
   return (
-    <div className="min-h-screen pt-32 pb-12 px-12 flex flex-col items-center">
+    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 flex flex-col items-center">
       <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12">
         {/* Agent Selection Rail */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-32 h-fit">
           <div className="flex items-center gap-4 mb-8">
             <div className="w-2 h-8 bg-val-red"></div>
             <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">SELECT_AGENT</h2>
@@ -1193,7 +1244,7 @@ const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onS
   };
 
   return (
-    <div className="min-h-screen pt-32 pb-12 px-12 relative">
+    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 relative w-full">
       <AnimatePresence>
         {isDeploying && (
           <motion.div 
@@ -1253,13 +1304,15 @@ const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onS
               className="group cursor-pointer relative"
             >
               <div className="relative aspect-[16/10] overflow-hidden border border-val-border group-hover:border-val-red transition-all duration-500">
-                <ParallaxImage 
-                  src={project.image} 
-                  alt={project.title} 
-                  strength={20}
-                  className="w-full h-full grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-110" 
-                />
-                <div className="absolute inset-0 bg-val-dark/70 group-hover:bg-val-dark/20 transition-all duration-500"></div>
+                <MaskReveal direction="left" delay={0.1} className="w-full h-full">
+                  <ParallaxImage 
+                    src={project.image} 
+                    alt={project.title} 
+                    strength={20}
+                    className="w-full h-full grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-110" 
+                  />
+                </MaskReveal>
+                <div className="absolute inset-0 bg-val-dark/70 group-hover:bg-val-dark/20 transition-all duration-500 pointer-events-none"></div>
                 
                 {/* Scanning Line */}
                 <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1308,7 +1361,7 @@ const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onS
 
 const MissionDetailPage: React.FC<{ project: Project, onBack: () => void }> = ({ project, onBack }) => {
   return (
-    <div className="min-h-screen pt-32 pb-12 px-12">
+    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full">
       <div className="max-w-7xl mx-auto">
         <button onClick={onBack} className="flex items-center gap-4 text-val-light/30 hover:text-val-red transition-all mb-12 group">
           <div className="w-10 h-10 glass-panel flex items-center justify-center group-hover:border-val-red">
@@ -1432,7 +1485,7 @@ const CareerPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen pt-32 pb-12 px-12">
+    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-16">
           <div className="w-2 h-8 bg-val-red"></div>
@@ -1530,7 +1583,7 @@ const CareerPage: React.FC = () => {
 
 const ContactPage: React.FC = () => {
   return (
-    <div className="min-h-screen pt-32 pb-12 px-12 flex items-center justify-center">
+    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full flex items-center justify-center">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-20">
         <div className="space-y-12">
           <div className="space-y-4">
