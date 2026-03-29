@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent, useInView } from 'motion/react';
 import Lenis from 'lenis';
+import ForceGraph2D from 'react-force-graph-2d';
 import { 
   Github, 
   Linkedin, 
@@ -15,6 +16,7 @@ import {
   Layers, 
   BarChart3, 
   Send,
+  Mail,
   ExternalLink,
   ChevronRight,
   Monitor,
@@ -37,27 +39,21 @@ import {
 } from 'lucide-react';
 
 // --- Custom Icons ---
-const FiverrIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+const FiverrLogo = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
   <svg 
     width={size} 
     height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+    viewBox="0 0 512 512" 
+    fill="currentColor"
     className={className}
   >
-    <path d="M15 10c0-1.1-.9-2-2-2h-3v10h2v-4h1l2 4h2l-2-4h1c1.1 0 2-.9 2-2v-2z" />
-    <path d="M7 8h2v10H7z" />
-    <circle cx="12" cy="12" r="10" />
+    <path d="M112.5 264.9C102.3 264.9 94 273.2 94 283.5 94 293.7 102.3 302 112.5 302C122.7 302 131 293.7 131 283.5 131 273.2 122.7 264.9 112.5 264.9ZM169.5 241h-26v-19c0-9.8 4.2-12.7 12.8-12.7 6.1 0 12.1 2.8 17.5 7.8l17.7-27.4c-9.5-9.3-24.1-15.7-41.2-15.7-36.8 0-48.8 20.8-48.8 49.3V241H81v25.2h19.5v72.5h33.8v-72.5h38.2L169.5 241zM286 211.5l14-37.5c-9.5-9.3-24.1-15.7-41.2-15.7-36.8 0-48.8 20.8-48.8 49.3V241H189v25.2h20.5v72.5h33.8v-72.5h38.2l-3-25.2h-35.2v-19c0-9.8 4.2-12.7 12.8-12.7 6.1 0 12.1 2.8 17.5 7.8L286 211.5zM431 241h-78.5c2 21.3 15.5 28.5 31.5 28.5 7.5 0 14.8-1.5 21-4.5l8.5 24.8c-10.5 6-22 9.2-36 9.2-39.2 0-58.8-21.5-58.8-54.8 0-35.2 24.2-56.5 56.5-56.5s53.2 21.8 53.2 56 0 0 0 0 2.5 7.2 2.5 7.2L431 241zM380.5 198.5c-11.8 0-21.8 6.5-26.5 20h53.5C407.5 205 396.5 198.5 380.5 198.5zM461.5 241h-26.5l3 25.2h23.5L461.5 241zM512 241l-14-37.5C488.5 194.2 473.9 187.8 456.8 187.8c-36.8 0-48.8 20.8-48.8 49.3V241h-20.5v25.2h20.5v72.5h33.8v-72.5H480L512 241z" />
   </svg>
 );
 
 // --- Types ---
-type Page = 'home' | 'agents' | 'missions' | 'career' | 'contact' | 'mission-detail';
-type AppState = 'match-found' | 'loading' | 'ready';
+type Page = 'home' | 'agents' | 'missions' | 'core' | 'docs' | 'career' | 'contact' | 'mission-detail';
+type AppState = 'standby' | 'loading' | 'ready';
 
 interface Project {
   id: string;
@@ -263,50 +259,42 @@ const CustomCursor: React.FC = () => {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999] hidden lg:block">
-      {/* Main Cursor Dot */}
+      {/* Target Crosshair */}
       <motion.div
         animate={{
-          x: mousePos.x - 4,
-          y: mousePos.y - 4,
+          x: mousePos.x - 12,
+          y: mousePos.y - 12,
           scale: isClicking ? 0.8 : 1,
         }}
-        transition={{ type: 'spring', damping: 30, stiffness: 400, mass: 0.5 }}
-        className="w-2 h-2 bg-val-red rounded-full fixed top-0 left-0"
-      />
-      
-      {/* Outer Tactical Ring */}
-      <motion.div
-        animate={{
-          x: mousePos.x - 20,
-          y: mousePos.y - 20,
-          scale: isHovering ? 1.5 : 1,
-          rotate: isHovering ? 90 : 0,
-          backgroundColor: isHovering ? 'rgba(255, 70, 85, 0.1)' : 'transparent',
-          borderColor: isHovering ? 'rgba(255, 70, 85, 0.8)' : 'rgba(255, 70, 85, 0.3)'
-        }}
-        transition={{ type: 'spring', damping: 20, stiffness: 150, mass: 0.8 }}
-        className="w-10 h-10 border border-val-red/30 rounded-sm fixed top-0 left-0 flex items-center justify-center backdrop-blur-sm"
+        transition={{ type: 'spring', damping: 40, stiffness: 600, mass: 0.2 }}
+        className="w-[24px] h-[24px] fixed top-0 left-0 flex items-center justify-center transform-gpu mix-blend-difference"
       >
-        <div className="w-1 h-1 bg-val-red/50 absolute top-0 left-1/2 -translate-x-1/2"></div>
-        <div className="w-1 h-1 bg-val-red/50 absolute bottom-0 left-1/2 -translate-x-1/2"></div>
-        <div className="w-1 h-1 bg-val-red/50 absolute left-0 top-1/2 -translate-y-1/2"></div>
-        <div className="w-1 h-1 bg-val-red/50 absolute right-0 top-1/2 -translate-y-1/2"></div>
-      </motion.div>
-
-      {/* Trailing Crosshair */}
-      <motion.div
-        animate={{
-          x: mousePos.x - 30,
-          y: mousePos.y - 30,
-          opacity: isHovering ? 1 : 0.2,
-        }}
-        transition={{ type: 'spring', damping: 25, stiffness: 100, mass: 1.2 }}
-        className="w-[60px] h-[60px] fixed top-0 left-0"
-      >
-        <div className="absolute top-1/2 left-0 w-2 h-[1px] bg-val-red"></div>
-        <div className="absolute top-1/2 right-0 w-2 h-[1px] bg-val-red"></div>
-        <div className="absolute top-0 left-1/2 w-[1px] h-2 bg-val-red"></div>
-        <div className="absolute bottom-0 left-1/2 w-[1px] h-2 bg-val-red"></div>
+        <div className="w-[3px] h-[3px] bg-val-red/80 rounded-full" />
+        
+        {/* Top Reticle Line */}
+        <motion.div 
+          initial={false}
+          animate={{ y: isHovering ? -8 : -5, opacity: isHovering ? 1 : 0.5 }}
+          className="absolute top-0 left-[11px] w-[2px] h-[6px] bg-val-red"
+        />
+        {/* Bottom Reticle Line */}
+        <motion.div 
+          initial={false}
+          animate={{ y: isHovering ? 8 : 5, opacity: isHovering ? 1 : 0.5 }}
+          className="absolute bottom-0 left-[11px] w-[2px] h-[6px] bg-val-red"
+        />
+        {/* Left Reticle Line */}
+        <motion.div 
+          initial={false}
+          animate={{ x: isHovering ? -8 : -5, opacity: isHovering ? 1 : 0.5 }}
+          className="absolute left-0 top-[11px] h-[2px] w-[6px] bg-val-red"
+        />
+        {/* Right Reticle Line */}
+        <motion.div 
+          initial={false}
+          animate={{ x: isHovering ? 8 : 5, opacity: isHovering ? 1 : 0.5 }}
+          className="absolute right-0 top-[11px] h-[2px] w-[6px] bg-val-red"
+        />
       </motion.div>
     </div>
   );
@@ -524,11 +512,13 @@ const Navbar: React.FC<{ onToggle: () => void, isOpen: boolean, setPage: (p: Pag
   );
 };
 
-const NavItem: React.FC<{ label: string, active: boolean, onClick: () => void }> = ({ label, active, onClick }) => {
+const NavItem: React.FC<{ label: string, meaning: string, active: boolean, onClick: () => void }> = ({ label, meaning, active, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const [displayText, setDisplayText] = useState(label);
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
   
   const scramble = () => {
+    setIsHovered(true);
     let iteration = 0;
     const interval = setInterval(() => {
       setDisplayText(prev => 
@@ -547,16 +537,31 @@ const NavItem: React.FC<{ label: string, active: boolean, onClick: () => void }>
     <motion.button
       onClick={onClick}
       onMouseEnter={scramble}
-      onMouseLeave={() => setDisplayText(label)}
+      onMouseLeave={() => { setIsHovered(false); setDisplayText(label); }}
       className="w-full flex items-center justify-between group py-6 border-b border-val-border/30 relative overflow-hidden"
     >
-      <div className="flex items-center gap-8 relative z-10">
-        <span className="text-val-red font-mono text-sm opacity-40 group-hover:opacity-100 transition-opacity tracking-widest">
+      <div className="flex items-center gap-8 relative z-10 w-full">
+        <span className="text-val-red font-mono text-sm opacity-40 group-hover:opacity-100 transition-opacity tracking-widest min-w-[100px] text-left">
           {active ? '// ACTIVE' : '// SELECT'}
         </span>
-        <h2 className={`text-6xl md:text-8xl font-display font-black tracking-tighter italic uppercase transition-all duration-300 ${active ? 'text-val-red' : 'text-val-light group-hover:text-val-red group-hover:pl-8'}`}>
-          {displayText}
-        </h2>
+        
+        <div className="flex flex-col items-start relative overflow-hidden h-20 md:h-32 lg:h-44 justify-center flex-1">
+          <motion.h2 
+            animate={isHovered ? { y: -120, opacity: 0 } : { y: 0, opacity: 1 }}
+            className={`text-2xl md:text-5xl lg:text-[clamp(3.5rem,8vw,8rem)] font-display font-black tracking-tighter italic uppercase transition-all duration-300 whitespace-nowrap lg:pr-12 min-w-max ${active ? 'text-val-red' : 'text-val-light group-hover:text-val-red'}`}
+          >
+            {displayText}
+          </motion.h2>
+          <motion.div
+            initial={{ y: 120, opacity: 0 }}
+            animate={isHovered ? { y: 0, opacity: 1 } : { y: 120, opacity: 0 }}
+            className="absolute inset-0 flex items-center"
+          >
+            <span className="text-lg md:text-3xl lg:text-[clamp(2.5rem,5vw,5rem)] font-display font-black tracking-[0.2em] italic uppercase text-val-red/80 whitespace-nowrap lg:pr-12 min-w-max">
+              {meaning}
+            </span>
+          </motion.div>
+        </div>
       </div>
       
       <div className="flex items-center gap-4 relative z-10">
@@ -575,13 +580,257 @@ const NavItem: React.FC<{ label: string, active: boolean, onClick: () => void }>
   );
 };
 
+
+
+const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [history, setHistory] = useState<{ type: 'command' | 'output', text: string }[]>([
+    { type: 'output', text: 'RUSHIL_OS v4.0.1 (x86_64)' },
+    { type: 'output', text: 'Type "help" for a list of commands.' }
+  ]);
+  const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle on backtick
+      if (e.key === '`') {
+        e.preventDefault();
+        setIsOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [isOpen, history]);
+
+  const handleCommand = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const cmd = input.trim();
+    const newHistory = [...history, { type: 'command', text: cmd } as const];
+    
+    switch(cmd.toLowerCase()) {
+      case 'help':
+        newHistory.push(
+          { type: 'output', text: 'Available commands:' },
+          { type: 'output', text: '  whoami      - Print agent bio' },
+          { type: 'output', text: '  ls          - List available sectors' },
+          { type: 'output', text: '  vision      - Initialize vision sector' },
+          { type: 'output', text: '  skills      - Load tech arsenal' },
+          { type: 'output', text: '  projects    - Open mission logs' },
+          { type: 'output', text: '  experience  - View service history' },
+          { type: 'output', text: '  clear       - Clear terminal' },
+          { type: 'output', text: '  exit        - Terminate connection' }
+        );
+        break;
+      case 'whoami':
+        newHistory.push({ type: 'output', text: 'Rushil Dhube: AI/ML Engineer architecting intelligent systems bridging complex data and real-world impact.' });
+        break;
+      case 'ls':
+        newHistory.push({ type: 'output', text: 'Sectors: home, agents, core, missions, career, docs, contact' });
+        newHistory.push({ type: 'output', text: 'Files: dossier.pdf, architecture.sys, kernel.bin' });
+        break;
+      case 'agents':
+      case 'vision':
+        setPage('agents');
+        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to AGENT_INTEL...' });
+        break;
+      case 'core':
+      case 'skills':
+        setPage('core');
+        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to TECHNICAL_ARSENAL...' });
+        break;
+      case 'missions':
+      case 'projects':
+        setPage('missions');
+        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to ACTIVE_OPERATIONS...' });
+        break;
+      case 'career':
+      case 'experience':
+        setPage('career');
+        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to SERVICE_HISTORY...' });
+        break;
+      case 'docs':
+      case 'intel':
+        setPage('docs');
+        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to INTEL_BRIEFING...' });
+        break;
+      case 'contact':
+        setPage('contact');
+        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to COMMS_CENTER...' });
+        break;
+      case 'home':
+        setPage('home');
+        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Returning to BASE_HUB...' });
+        break;
+      case 'cat dossier.pdf':
+      case 'cat files':
+        newHistory.push({ type: 'output', text: 'Access denied: File is classified. Initiate [DOWNLOAD_DOSSIER] via GUI for access.'});
+        break;
+      case 'clear':
+        setHistory([]);
+        setInput('');
+        return;
+      case 'exit':
+        setIsOpen(false);
+        setInput('');
+        return;
+      default:
+        newHistory.push({ type: 'output', text: `command not found: ${cmd}. Type 'help' for available commands.` });
+    }
+
+    setHistory(newHistory);
+    setInput('');
+  };
+
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  return (
+    <>
+      {/* Floating launch button — only show when closed */}
+      <AnimatePresence>
+        {!isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ delay: 1 }}
+            className="fixed bottom-6 right-6 z-[200]"
+          >
+            <button
+              onClick={() => { setIsOpen(true); setIsMinimized(false); }}
+              className="glass-panel px-4 py-3 flex items-center gap-3 group border-val-red/30 hover:border-val-red transition-all shadow-[0_0_20px_rgba(255,70,85,0.2)] bg-val-dark/90 backdrop-blur-md"
+            >
+              <Terminal size={16} className="text-val-red group-hover:animate-pulse" />
+              <span className="text-[10px] font-mono text-val-light/80 uppercase tracking-[0.2em] group-hover:text-white transition-colors">INIT_TERMINAL</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Minimised taskbar pill */}
+      <AnimatePresence>
+        {isOpen && isMinimized && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200]"
+          >
+            <button
+              onClick={() => setIsMinimized(false)}
+              className="glass-panel px-6 py-2 flex items-center gap-3 border-val-red/40 hover:border-val-red transition-all bg-val-dark/90 backdrop-blur-md"
+            >
+              <Terminal size={14} className="text-val-red" />
+              <span className="text-[10px] font-mono text-val-light/80 uppercase tracking-[0.2em]">SECURE_TERMINAL_UPLINK</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Popup Window */}
+      <AnimatePresence>
+        {isOpen && !isMinimized && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 20 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className={`fixed z-[99999] font-mono text-sm shadow-[0_30px_80px_rgba(0,0,0,0.6),0_0_40px_rgba(255,70,85,0.1)] ${
+              isMaximized
+                ? 'inset-0'
+                : 'bottom-16 left-1/2 -translate-x-1/2 w-[90vw] max-w-3xl h-[480px]'
+            } flex flex-col border border-val-red/30 bg-[#0d1117] overflow-hidden`}
+            style={isMaximized ? {} : { borderRadius: '4px' }}
+            onClick={() => inputRef.current?.focus()}
+          >
+            {/* Title Bar */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-val-border/60 flex-shrink-0 select-none">
+              {/* Window Controls */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsOpen(false); setIsMinimized(false); setIsMaximized(false); }}
+                  className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] transition-colors flex items-center justify-center group"
+                  title="Close"
+                >
+                  <span className="hidden group-hover:block text-[8px] text-black font-bold leading-none">✕</span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsMinimized(true); }}
+                  className="w-3 h-3 rounded-full bg-[#febc2e] hover:bg-[#ffcc00] transition-colors flex items-center justify-center group"
+                  title="Minimize"
+                >
+                  <span className="hidden group-hover:block text-[8px] text-black font-bold leading-none">−</span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsMaximized(m => !m); }}
+                  className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#32d74b] transition-colors flex items-center justify-center group"
+                  title="Maximize"
+                >
+                  <span className="hidden group-hover:block text-[8px] text-black font-bold leading-none">{isMaximized ? '⊡' : '⊞'}</span>
+                </button>
+              </div>
+
+              {/* Title */}
+              <span className="text-val-light/40 text-[11px] tracking-[0.25em] uppercase absolute left-1/2 -translate-x-1/2">SECURE_TERMINAL_UPLINK</span>
+
+              {/* Right actions */}
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-val-red animate-pulse" />
+                <span className="text-[9px] font-mono text-val-light/30 uppercase tracking-widest">LIVE</span>
+              </div>
+            </div>
+
+            {/* Terminal body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-2 bg-[#0d1117]">
+              {history.map((h, i) => (
+                <div key={i} className={`flex gap-3 ${h.type === 'command' ? 'text-white' : 'text-val-light/70'}`}>
+                  {h.type === 'command' && <span className="text-val-red min-w-fit text-xs">root@rushil:~$</span>}
+                  <span className={`text-xs ${ h.type === 'command' ? 'text-white font-semibold' : 'text-green-400 pl-6'}`}>{h.text}</span>
+                </div>
+              ))}
+              <form onSubmit={handleCommand} className="flex gap-3 items-center">
+                <span className="text-val-red min-w-fit text-xs">root@rushil:~$</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  className="flex-1 bg-transparent outline-none border-none text-white font-semibold text-xs caret-val-red"
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </form>
+              <div ref={endRef} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
 const NavOverlay: React.FC<{ isOpen: boolean, activePage: Page, setPage: (p: Page) => void, onClose: () => void }> = ({ isOpen, activePage, setPage, onClose }) => {
-  const navItems: { id: Page; label: string }[] = [
-    { id: 'home', label: 'Home' },
-    { id: 'agents', label: 'Agents' },
-    { id: 'missions', label: 'Missions' },
-    { id: 'career', label: 'Career' },
-    { id: 'contact', label: 'Contact' },
+  const navItems: { id: Page; label: string; meaning: string }[] = [
+    { id: 'home', label: 'Home', meaning: 'Base Hub' },
+    { id: 'agents', label: 'Agents', meaning: 'Vision' },
+    { id: 'core', label: 'Systems Core', meaning: 'Skills' },
+    { id: 'missions', label: 'Missions', meaning: 'Projects' },
+    { id: 'career', label: 'Career', meaning: 'Experience' },
+    { id: 'docs', label: 'Documentation', meaning: 'Intelligence' },
+    { id: 'contact', label: 'Contact', meaning: 'Comms' },
   ];
 
   useEffect(() => {
@@ -601,7 +850,7 @@ const NavOverlay: React.FC<{ isOpen: boolean, activePage: Page, setPage: (p: Pag
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-0 z-[110] bg-val-dark/95 backdrop-blur-xl flex flex-col pt-32 px-12 md:px-24 overflow-y-auto overflow-x-hidden"
+          className="fixed inset-0 z-[110] bg-val-dark/95 backdrop-blur-xl flex flex-col pt-32 px-6 md:px-24 overflow-y-auto overflow-x-hidden"
           data-lenis-prevent
         >
           <div className="absolute top-0 right-0 w-1/3 h-full bg-val-red/5 skew-x-[-15deg] translate-x-1/2 pointer-events-none"></div>
@@ -611,11 +860,12 @@ const NavOverlay: React.FC<{ isOpen: boolean, activePage: Page, setPage: (p: Pag
             <span className="text-val-red font-mono text-xs tracking-[0.5em] uppercase">Navigation_Interface</span>
           </div>
 
-          <div className="flex flex-col w-full max-w-5xl">
+          <div className="flex flex-col w-full">
             {navItems.map((item) => (
               <NavItem 
                 key={item.id}
                 label={item.label}
+                meaning={item.meaning}
                 active={activePage === item.id || (activePage === 'mission-detail' && item.id === 'missions')}
                 onClick={() => { setPage(item.id); onClose(); }}
               />
@@ -633,8 +883,12 @@ const NavOverlay: React.FC<{ isOpen: boolean, activePage: Page, setPage: (p: Pag
                 <Linkedin size={24} className="text-val-light/40 group-hover:text-white transition-colors" />
               </a>
               <a href="https://www.fiverr.com/rushildhube" target="_blank" className="group">
-                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors underline-slide pb-1">Fiverr</div>
-                <ShoppingBag size={24} className="text-val-light/40 group-hover:text-white transition-colors" />
+                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors underline-slide pb-1">MARKETPLACE</div>
+                <FiverrLogo className="text-val-light/40 group-hover:text-white transition-colors" size={32} />
+              </a>
+              <a href="mailto:rushildhube1305@gmail.com" className="group">
+                <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-widest mb-2 group-hover:text-val-red transition-colors underline-slide pb-1">SECURE_MAIL</div>
+                <Mail size={24} className="text-val-light/40 group-hover:text-white transition-colors" />
               </a>
             </div>
 
@@ -752,92 +1006,144 @@ const HUDOverlay = () => {
   );
 };
 
-const MatchFound: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
-  const [isAccepted, setIsAccepted] = useState(false);
 
-  const handleAccept = () => {
-    setIsAccepted(true);
-    setTimeout(onComplete, 400);
+
+const LandingPage: React.FC<{ onEnter: () => void }> = ({ onEnter }) => {
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [showMatchFound, setShowMatchFound] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+
+  useEffect(() => {
+    let timer: any;
+    if (showMatchFound && countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    } else if (showMatchFound && countdown === 0) {
+      onEnter();
+    }
+    return () => clearTimeout(timer);
+  }, [showMatchFound, countdown, onEnter]);
+
+  const handleStart = () => {
+    setIsInitializing(true);
+    
+    // Play tactical sound immediately on user interaction
+    const audio = new Audio('/match-found.mp3');
+    audio.play().catch(() => {});
+    
+    // Show MATCH FOUND animation overlay
+    setTimeout(() => setShowMatchFound(true), 100);
   };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-      animate={{ opacity: 1, backdropFilter: 'blur(10px)' }}
-      exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-      transition={{ duration: 0.1 }}
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 saturate-[0.8]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] bg-val-dark flex flex-col items-center justify-center p-6 md:p-12 overflow-hidden"
     >
-      {/* Radial Energy Pulse */}
-      <motion.div 
-        initial={{ scale: 0.6, opacity: 0 }}
-        animate={{ 
-          scale: [0.6, 1.2], 
-          opacity: [0, 0.8, 0] 
-        }}
-        transition={{ 
-          delay: 0.2, 
-          duration: 0.8, 
-          ease: "easeOut"
-        }}
-        className="absolute w-[600px] h-[600px] rounded-full bg-radial from-val-cyan/40 via-val-cyan/5 to-transparent pointer-events-none"
-      />
-
-      <div className="relative z-10 flex flex-col items-center gap-12">
-        {/* Match Found Text */}
-        <motion.h2 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ 
-            opacity: 1, 
-            scale: [0.9, 1.05, 1] 
-          }}
-          transition={{ 
-            delay: 0.6, 
-            duration: 0.5, 
-            ease: "easeOut" 
-          }}
-          className="text-white font-display font-black text-6xl md:text-7xl tracking-[0.1em] uppercase drop-shadow-[0_0_20px_rgba(0,242,255,0.5)]"
-        >
-          MATCH FOUND
-        </motion.h2>
-
-        {/* Accept Button */}
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ 
-            opacity: 1, 
-            y: 0,
-            scale: isAccepted ? 1 : [1, 1.03, 1],
-            boxShadow: isAccepted ? '0 0 0px rgba(0, 242, 255, 0)' : ['0 0 0px rgba(0, 242, 255, 0)', '0 0 20px rgba(0, 242, 255, 0.4)', '0 0 0px rgba(0, 242, 255, 0)']
-          }}
-          transition={{ 
-            opacity: { delay: 1, duration: 0.2 },
-            y: { delay: 1, duration: 0.2 },
-            scale: { 
-              repeat: isAccepted ? 0 : Infinity, 
-              duration: 1.3, 
-              ease: "easeInOut",
-              delay: 1.2
-            },
-            boxShadow: {
-              repeat: isAccepted ? 0 : Infinity, 
-              duration: 1.3, 
-              ease: "easeInOut",
-              delay: 1.2
-            }
-          }}
-          onClick={handleAccept}
-          className={`
-            relative px-20 py-6 rounded-sm font-display font-black text-3xl tracking-[0.2em] uppercase transition-all duration-200
-            ${isAccepted 
-              ? 'bg-val-cyan text-val-dark brightness-100 scale-100' 
-              : 'bg-val-cyan text-val-dark hover:brightness-125 hover:scale-105 active:scale-95 cursor-pointer'
-            }
-          `}
-        >
-          ACCEPT
-        </motion.button>
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+        <div className="absolute inset-0" style={{ 
+          backgroundImage: `linear-gradient(var(--color-val-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-val-border) 1px, transparent 1px)`,
+          backgroundSize: '100px 100px'
+        }}></div>
       </div>
+
+      <div className="w-full max-w-7xl mx-auto flex flex-col items-center gap-12 relative z-10">
+        <div className="w-full flex justify-between items-start mb-12">
+          <div className="space-y-4">
+            <span className="text-val-red font-mono text-xs tracking-[0.6em] uppercase block">Clearance_Level</span>
+            <div className="flex items-center gap-4">
+              <div className="w-4 h-8 bg-val-red"></div>
+              <span className="text-4xl font-display font-black italic tracking-tighter uppercase">RADIANT</span>
+            </div>
+          </div>
+          <div className="text-right space-y-4">
+            <span className="text-val-light/20 font-mono text-[10px] tracking-[0.4em] uppercase block">Location_ID</span>
+            <span className="text-2xl font-display font-black italic tracking-tighter uppercase opacity-40">PUNE_NODE_01</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-6">
+          <h2 className="text-val-red font-display font-black text-sm tracking-[1em] uppercase animate-pulse">PERSONNEL_IDENTIFIED</h2>
+          <h1 className="text-6xl md:text-9xl font-display font-black tracking-tighter italic uppercase text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+            RUSHIL <span className="text-val-red">//</span> DHUBE
+          </h1>
+          <div className="h-px w-full max-w-md bg-gradient-to-r from-transparent via-val-red to-transparent"></div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 w-full max-w-4xl mt-12">
+          <div className="glass-panel p-8 text-left space-y-4 border-val-red border-l-4 group hover:bg-val-red/[0.03] transition-colors">
+            <span className="text-[10px] font-mono text-val-red/60 uppercase tracking-widest block">Primary_Specialization</span>
+            <span className="text-2xl font-display font-black italic tracking-tight uppercase group-hover:text-val-red transition-colors">BACKEND & ML ARCHITECT</span>
+          </div>
+          <div className="glass-panel p-8 text-left space-y-4 border-val-red/20 group hover:border-val-red/50 transition-colors">
+            <span className="text-[10px] font-mono text-val-red/60 uppercase tracking-widest block">Core_Modules</span>
+            <span className="text-2xl font-display font-black italic tracking-tight uppercase group-hover:text-val-red transition-colors">AUTOMATION // NEURAL NETS</span>
+          </div>
+          <div className="glass-panel p-8 text-left space-y-4 border-val-red/20 group hover:border-val-red/50 transition-colors">
+            <span className="text-[10px] font-mono text-val-red/60 uppercase tracking-widest block">Uplink_Signal</span>
+            <span className="text-2xl font-display font-black italic tracking-tight uppercase group-hover:text-val-red transition-colors text-green-500">OPTIMAL_LINK</span>
+          </div>
+        </div>
+
+        <div className="mt-16 group relative">
+          <motion.div 
+            animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="absolute inset-0 bg-val-red/20 rounded-full blur-3xl pointer-events-none"
+          />
+          <button 
+            onClick={handleStart}
+            disabled={isInitializing}
+            className="val-button val-button-primary text-4xl py-10 px-20 relative z-10 font-display italic tracking-[0.2em]"
+          >
+            {isInitializing ? 'INITIALIZING...' : 'INITIALIZE_EXPERIENCE'}
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {showMatchFound && (
+          <motion.div 
+            initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+            animate={{ opacity: 1, backdropFilter: 'blur(20px)' }}
+            exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+            className="fixed inset-0 z-[250] flex flex-col items-center justify-center bg-black/60"
+          >
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="flex flex-col items-center gap-8"
+            >
+              <h2 className="text-white font-display font-black text-6xl md:text-9xl tracking-[0.2em] uppercase drop-shadow-[0_0_50px_rgba(255,70,85,0.5)] whitespace-nowrap">
+                MATCH FOUND
+              </h2>
+              
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-val-red font-mono text-xs tracking-[1em] uppercase">Deploying_Asset_In</div>
+                <motion.div 
+                  key={countdown}
+                  initial={{ scale: 1.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-white text-8xl font-display font-black italic"
+                >
+                  {countdown}
+                </motion.div>
+                <div className="w-64 h-1 bg-val-red/20 relative overflow-hidden">
+                  <motion.div 
+                    initial={{ width: "100%" }}
+                    animate={{ width: "0%" }}
+                    transition={{ duration: 3, ease: "linear" }}
+                    className="absolute top-0 left-0 h-full bg-val-red"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="scanline"></div>
     </motion.div>
   );
 };
@@ -902,7 +1208,7 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
           <div className="flex items-center w-full gap-4 mb-8">
             <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.8 }} className="h-px flex-1 bg-val-border origin-left" />
             <StaggeredText 
-              text="AI & ML ENGINEER" 
+              text="BACKEND & ML ARCHITECT" 
               className="text-lg md:text-2xl font-display font-black text-val-red tracking-[0.2em] italic whitespace-nowrap"
               delay={0.8}
             />
@@ -937,8 +1243,14 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
               </Magnetic>
               <Magnetic strength={0.3}>
                 <a href="https://www.fiverr.com/rushildhube" target="_blank" className="w-14 h-14 glass-panel flex items-center justify-center hover:text-val-red hover:border-val-red transition-all group/icon">
-                  <ShoppingBag size={24} className="group-hover/icon:scale-110 transition-transform" />
+                  <FiverrLogo size={24} className="group-hover/icon:scale-110 transition-transform" />
                   <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-val-red text-[8px] font-mono text-white opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap">FIVERR_MARKET</div>
+                </a>
+              </Magnetic>
+              <Magnetic strength={0.3}>
+                <a href="mailto:rushildhube1305@gmail.com" className="w-14 h-14 glass-panel flex items-center justify-center hover:text-val-red hover:border-val-red transition-all group/icon">
+                  <Mail size={24} className="group-hover/icon:scale-110 transition-transform" />
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-val-red text-[8px] font-mono text-white opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap">SECURE_MAIL</div>
                 </a>
               </Magnetic>
             </div>
@@ -995,40 +1307,40 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
 const AgentsPage: React.FC = () => {
   const agents = [
     { 
-      id: 'neuro', 
-      title: 'NEURO', 
-      spec: 'NLP, GenAI & RAG Engineering',
-      icon: Cpu,
-      skills: ['LLMs', 'RAG (Retrieval-Augmented Generation)', 'Sequence Models', 'Transformers', 'TruLens Evaluation'],
-      metrics: '90%+ accuracy in harmful substance detection',
-      desc: 'Expert in building safety-focused conversational systems and advanced retrieval architectures using OpenAI and Qdrant.'
-    },
-    { 
-      id: 'vision', 
-      title: 'VISION', 
-      spec: 'Deep Learning & Computer Vision',
-      icon: Eye,
-      skills: ['OpenCV', 'CNNs', 'Vision Transformers (ViT)', 'Medical Image Processing', 'Image Segmentation'],
-      metrics: '92.4% retinal accuracy, 92.28% dental accuracy',
-      desc: 'Specialized in medical imaging diagnosis and sophisticated deepfake detection systems using TensorFlow and PyTorch.'
-    },
-    { 
-      id: 'forge', 
-      title: 'FORGE', 
-      spec: 'Automation & GenAI Pipelines',
-      icon: Zap,
-      skills: ['Make.com', 'Meta Graph API', 'Google Gemini', 'Google Veo', 'STT/TTS Systems'],
-      metrics: '75% reduction in manual content creation time',
-      desc: 'Architecting complex social media automation workflows and real-time voice/chat agent pipelines.'
-    },
-    { 
       id: 'core', 
       title: 'CORE', 
       spec: 'Backend & Systems Engineering',
       icon: Terminal,
-      skills: ['FastAPI', 'Flask', 'Django', 'MongoDB', 'PostgreSQL', 'Docker', 'GCP'],
-      metrics: 'Scalable MVP deployments & asynchronous backends',
-      desc: 'Building robust, production-ready infrastructures with a focus on clean architecture and system reliability.'
+      skills: ['FastAPI', 'Python Coding', 'Django', 'PostgreSQL', 'Docker', 'Asynchronous Systems', 'Cloud Architectures (GCP)'],
+      metrics: 'Scalable MVP deployments & production-ready backends',
+      desc: 'Architecting robust, mission-critical infrastructure and high-performance backend systems with a focus on code scalability and resilience.'
+    },
+    { 
+      id: 'forge', 
+      title: 'FORGE', 
+      spec: 'ML & Automation Pipelines',
+      icon: Zap,
+      skills: ['Autonous Workflows', 'Make.com', 'Meta Graph API', 'LLM Integration', 'Dynamic STT/TTSPipelines'],
+      metrics: '75% reduction in manual content creation time',
+      desc: 'Engineering sophisticated automation architectures that leverage GenAI to streamline complex business operations.'
+    },
+    { 
+      id: 'neuro', 
+      title: 'NEURO', 
+      spec: 'NLP & RAG Engineering',
+      icon: Cpu,
+      skills: ['Large Language Models (LLMs)', 'RAG Vector-DB Architectures', 'Sequence Models', 'Transformers', 'SafeAI Implementation'],
+      metrics: '90%+ accuracy in specialized retrieval systems',
+      desc: 'Specialist in building neural conversational systems and high-precision evaluation matrices for AI safety.'
+    },
+    { 
+      id: 'vision', 
+      title: 'VISION', 
+      spec: 'Computer Vision & Deep Learning',
+      icon: Eye,
+      skills: ['Computer Vision (OpenCV)', 'CNNs', 'Vision Transformers (ViT)', 'Medical Image Diagnostics', 'Object Tracking'],
+      metrics: '92.4% accuracy in diagnostic vision models',
+      desc: 'High-precision deep learning implementation for medical imaging and complex visual recognition challenges.'
     }
   ];
 
@@ -1058,7 +1370,7 @@ const AgentsPage: React.FC = () => {
                   <div className={`w-12 h-12 flex items-center justify-center transition-transform duration-500 ${selectedAgent.id === agent.id ? 'scale-110' : 'group-hover:scale-110'}`}>
                     <agent.icon size={32} />
                   </div>
-                  <div className="flex flex-col items-start">
+                  <div className="flex flex-col items-start text-left">
                     <span className="font-display font-black text-3xl tracking-tighter italic leading-none mb-1">{agent.title}</span>
                     <span className={`text-[8px] font-mono tracking-widest uppercase ${selectedAgent.id === agent.id ? 'text-white/60' : 'text-val-light/20'}`}>
                       {agent.spec.split(',')[0]}
@@ -1232,6 +1544,57 @@ const AgentsPage: React.FC = () => {
   );
 };
 
+const DocsPage: React.FC = () => {
+  const categories = [
+    { title: 'SYSTEM_ARCH', items: ['Neural Loadout', 'Core Backend', 'Uplink Protocols'], icon: Cpu },
+    { title: 'OPERATIONAL', items: ['Vision Diagnostics', 'NLP Matrix', 'Forge Pipelines'], icon: Zap },
+    { title: 'SECURITY', items: ['Auth_v4.0', 'Radiant Clearance', 'Secure Comms'], icon: ShieldCheck }
+  ];
+
+  return (
+    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 flex flex-col items-center">
+      <div className="max-w-7xl w-full">
+        <div className="flex flex-col items-center gap-6 mb-20 text-center">
+          <div className="flex items-center gap-4">
+            <div className="w-2 h-8 bg-val-red"></div>
+            <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">SYSTEM_DOCUMENTATION // INTEL</h2>
+          </div>
+          <h1 className="text-6xl md:text-8xl font-display font-black tracking-tighter italic uppercase">INTEL_BRIEFING</h1>
+          <p className="text-val-light/40 font-mono text-xs uppercase tracking-[0.3em] max-w-xl">
+            Direct access to the tactical blueprints and technical specifications of the Rushil OS.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          {categories.map((cat, idx) => (
+            <div key={idx} className="glass-panel p-12 relative group hover:border-val-red transition-all">
+              <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-40 transition-opacity">
+                <cat.icon size={64} className="text-val-red" />
+              </div>
+              <div className="flex flex-col gap-8 relative z-10">
+                <h3 className="text-val-red font-display font-black text-xs tracking-[0.5em] uppercase">[{cat.title}]</h3>
+                <div className="space-y-6">
+                  {cat.items.map((item, i) => (
+                    <div key={i} className="flex items-center gap-4 group/item cursor-pointer">
+                      <div className="w-1.5 h-1.5 bg-val-red/40 group-hover/item:bg-val-red transition-colors"></div>
+                      <span className="text-xl font-display font-black italic tracking-tight uppercase group-hover/item:translate-x-2 transition-transform">{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="mt-4 text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] hover:text-val-red transition-colors text-left uppercase">
+                  Request_Access_Uplink {" >> "}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
 const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onSelectProject }) => {
   const [isDeploying, setIsDeploying] = useState<string | null>(null);
 
@@ -1280,16 +1643,16 @@ const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onS
               <div className="w-2 h-8 bg-val-red"></div>
               <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">MISSION_LOGS</h2>
             </div>
-            <h1 className="text-7xl font-display font-black tracking-tighter italic leading-none">ACTIVE_OPERATIONS</h1>
+            <h1 className="text-7xl font-display font-black tracking-tighter italic leading-none text-white whitespace-pre-wrap">ACTIVE_OPERATIONS</h1>
           </div>
           <div className="glass-panel px-8 py-4 flex items-center gap-8">
             <div className="flex flex-col">
-              <span className="text-[8px] font-mono text-val-light/30 uppercase tracking-widest">Total Missions</span>
+              <span className="text-[8px] font-mono text-val-light/30 uppercase tracking-widest">Op_Count</span>
               <span className="text-3xl font-display font-black text-val-red">08</span>
             </div>
             <div className="w-px h-10 bg-val-border"></div>
             <div className="flex flex-col">
-              <span className="text-[8px] font-mono text-val-light/30 uppercase tracking-widest">Success Rate</span>
+              <span className="text-[8px] font-mono text-val-light/30 uppercase tracking-widest">Success_Rate</span>
               <span className="text-3xl font-display font-black text-val-light">100%</span>
             </div>
           </div>
@@ -1489,7 +1852,7 @@ const CareerPage: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-16">
           <div className="w-2 h-8 bg-val-red"></div>
-          <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">CAREER_STATS // PERFORMANCE</h2>
+          <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">SERVICE_HISTORY // COMBAT_LOGS</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
@@ -1505,7 +1868,40 @@ const CareerPage: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
           {/* Experience & Education */}
-          <div className="lg:col-span-7 space-y-16">
+          <div className="lg:col-span-7 space-y-20">
+            {/* Professional Experience */}
+            <div className="space-y-12">
+              <div className="flex items-center gap-6">
+                <div className="w-12 h-12 glass-panel flex items-center justify-center border-val-red/30">
+                  <Briefcase className="text-val-red" size={24} />
+                </div>
+                <h3 className="text-2xl font-display font-black tracking-tighter italic uppercase">Mission_History // Experience</h3>
+              </div>
+              
+              <div className="space-y-10 relative before:absolute before:left-0 before:top-0 before:w-px before:h-full before:bg-val-border">
+                {[
+                  { role: 'GENAI AUTOMATION LEAD', company: 'Fiverr (Freelance)', year: '2023 - PRESENT', desc: 'Deploying high-impact automation pipelines and custom GenAI agents for global clients. Optimized workflow efficiency by 75% for 20+ projects.', status: 'ACTIVE' },
+                  { role: 'SYSTEMS ARCHITECT (INTERN)', company: 'Tech Forge Labs', year: 'JAN 2024 - JUNE 2024', desc: 'Engineered robust backend systems using FastAPI and monitored neural loadouts for medical classification models.', status: 'COMPLETED' }
+                ].map((exp, idx) => (
+                  <ScrollReveal key={idx} direction="left">
+                    <div className="pl-10 relative group">
+                      <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 bg-val-red rotate-45 group-hover:scale-150 transition-transform"></div>
+                      <div className="flex items-center gap-4 mb-2">
+                        <div className="text-[10px] font-mono text-val-red tracking-widest">{exp.year}</div>
+                        <div className={`text-[8px] font-mono px-2 py-0.5 border ${exp.status === 'ACTIVE' ? 'border-green-500 text-green-500 bg-green-500/10' : 'border-val-light/20 text-val-light/40'} uppercase tracking-widest`}>
+                          {exp.status}
+                        </div>
+                      </div>
+                      <h4 className="text-2xl font-display font-black tracking-tighter italic mb-1 uppercase group-hover:text-val-red transition-colors">{exp.role}</h4>
+                      <div className="text-sm font-bold text-val-light/60 mb-3">{exp.company}</div>
+                      <p className="text-sm text-val-light/40 max-w-lg leading-relaxed">{exp.desc}</p>
+                    </div>
+                  </ScrollReveal>
+                ))}
+              </div>
+            </div>
+
+            {/* Education History */}
             <div className="space-y-12">
               <div className="flex items-center gap-6">
                 <div className="w-12 h-12 glass-panel flex items-center justify-center border-val-red/30">
@@ -1581,17 +1977,173 @@ const CareerPage: React.FC = () => {
   );
 };
 
+const SystemsCorePage: React.FC = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [hoverNode, setHoverNode] = useState<any>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      setDimensions({
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight
+      });
+    }
+  }, []);
+
+  const graphData = useMemo(() => {
+    const nodes: any[] = [{ id: 'RUSHIL_AI_CORE', group: 0, val: 50 }];
+    const links: any[] = [];
+    
+    // Create categories with boosted importance for ML, Backend, and Automation
+    const categories = [
+      { id: 'Deep_Learning', group: 1, val: 45 },
+      { id: 'Systems_Backend', group: 2, val: 45 },
+      { id: 'Automation', group: 3, val: 45 },
+      { id: 'Data_Prep_Misc', group: 4, val: 25 }
+    ];
+    
+    nodes.push(...categories);
+    categories.forEach(c => {
+      links.push({ source: 'RUSHIL_AI_CORE', target: c.id });
+    });
+
+    const addedSkills = new Set();
+    
+    PROJECTS.forEach(p => {
+      p.tech.concat(p.tools).forEach(tech => {
+        if (!addedSkills.has(tech)) {
+          addedSkills.add(tech);
+          
+          let targetGroup = 4;
+          let parent = 'Data_Science';
+          
+          if (['FastAPI', 'Django', 'MongoDB', 'PostgreSQL', 'Docker', 'Redis', 'Flask', 'GCP'].includes(tech)) {
+            targetGroup = 2; parent = 'Systems_Backend';
+          } else if (['Make.com', 'Twilio API', 'Twilio', 'SMTP', 'Chrome Extension API', 'Google Gemini', 'Google Veo'].includes(tech)) {
+            targetGroup = 3; parent = 'Automation';
+          } else if (['PyTorch', 'TensorFlow', 'CNNs', 'ResNet-50', 'ViT-B/16', 'LSTM', 'Spectrogram'].includes(tech)) {
+            targetGroup = 1; parent = 'Deep_Learning';
+          }
+
+          nodes.push({ id: tech, group: targetGroup, val: 15 });
+          links.push({ source: parent, target: tech });
+        }
+      });
+    });
+
+    return { nodes, links };
+  }, []);
+
+  return (
+    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full flex flex-col items-center">
+      <div className="max-w-7xl mx-auto mb-16 relative z-10 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-[2px] bg-val-red/40"></div>
+            <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">TECHNICAL_ARSENAL</h2>
+            <div className="w-8 h-[2px] bg-val-red/40"></div>
+          </div>
+          <h1 className="text-7xl font-display font-black tracking-tighter italic leading-none text-white drop-shadow-lg">
+            NEURAL_LOADOUT
+          </h1>
+          <p className="text-val-light/40 font-mono text-xs uppercase tracking-[0.3em] max-w-xl">
+            Interactive topological map of system-wide skills and technical specializations.
+            Drag core modules to analyze neural links.
+          </p>
+        </div>
+      </div>
+
+      <div ref={containerRef} className="w-full max-w-7xl h-[60vh] md:h-[700px] glass-panel border border-val-border relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-8 font-mono text-[10px] text-val-light/20 tracking-[0.5em] flex flex-col items-end gap-2 z-10 pointer-events-none">
+          <span>LIVE_SIMULATION</span>
+          <div className="flex gap-1 group-hover:animate-pulse">
+            <div className="w-2 h-2 rounded-full bg-val-red"></div>
+          </div>
+        </div>
+        
+        {dimensions.width > 0 && (
+          <ForceGraph2D
+            width={dimensions.width}
+            height={dimensions.height}
+            graphData={graphData}
+            nodeRelSize={1}
+            nodeColor={(node: any) => node.group === 0 ? '#ff4655' : node.group === 1 ? '#00e5ff' : node.group === 2 ? '#ffc107' : node.group === 3 ? '#b388ff' : '#00e676'}
+            linkColor={() => 'rgba(255, 255, 255, 0.1)'}
+            nodeLabel="id"
+            onNodeHover={setHoverNode}
+            nodeCanvasObject={(node: any, ctx, globalScale) => {
+              const label = node.id;
+              const isHovered = hoverNode === node;
+              const isImportant = node.group < 4; // RUSHIL_AI_CORE or Major Category
+              const radius = node.val / 3.5;
+
+              const color = node.group === 0 ? '#ff4655' : node.group === 1 ? '#00e5ff' : node.group === 2 ? '#ffc107' : node.group === 3 ? '#b388ff' : '#00e676';
+
+              // Draw Node Circle
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+              ctx.fillStyle = color;
+              
+              if (isHovered) {
+                ctx.shadowColor = '#ffffff';
+                ctx.shadowBlur = 15;
+              } else if (isImportant) {
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 8;
+              } else {
+                ctx.shadowBlur = 0;
+              }
+              ctx.fill();
+
+              // Draw Label only if hovered or if it's an important category 
+              // (which prevents screen clutter)
+              if (isHovered || isImportant) {
+                const fontSize = isImportant ? 10 : 8;
+                ctx.font = `${fontSize}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.shadowBlur = 0; // Don't blur the text
+                
+                // Text shadow/background for legibility
+                ctx.fillStyle = 'rgba(15, 25, 35, 0.8)';
+                const textWidth = ctx.measureText(label).width;
+                ctx.fillRect(node.x - textWidth / 2 - 2, node.y + radius + 2, textWidth + 4, fontSize + 4);
+
+                ctx.fillStyle = isHovered ? '#ffffff' : color;
+                ctx.fillText(label, node.x, node.y + radius + 4);
+              }
+              
+              // Required for hover hit detection
+              node.__bckgDimensions = [radius*2, radius*2];
+            }}
+            nodePointerAreaPaint={(node: any, color, ctx) => {
+              ctx.fillStyle = color;
+              const radius = node.val / 3.5;
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI, false); // generous hover radius
+              ctx.fill();
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+
 const ContactPage: React.FC = () => {
   return (
-    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full flex items-center justify-center">
-      <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-20">
+    <div className="min-h-screen pt-40 pb-20 px-6 md:px-12 lg:px-24 w-full flex items-center justify-center overflow-x-hidden">
+      <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-start">
         <div className="space-y-12">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="w-2 h-8 bg-val-red"></div>
               <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">INITIATE_COMMS</h2>
             </div>
-            <h1 className="text-8xl font-display font-black tracking-tighter italic leading-none">CONTACT_AGENT</h1>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-black tracking-tighter italic leading-none break-words">CONTACT_AGENT</h1>
           </div>
 
           <p className="text-val-light/60 text-xl leading-relaxed max-w-lg">
@@ -1599,15 +2151,15 @@ const ContactPage: React.FC = () => {
           </p>
 
           <div className="space-y-10">
-            <div className="flex items-start gap-8 group">
+            <a href="mailto:rushildhube1305@gmail.com" className="flex items-start gap-8 group">
               <div className="w-16 h-16 glass-panel flex items-center justify-center group-hover:border-val-red transition-colors">
-                <Send className="text-val-red" size={28} />
+                <Mail className="text-val-red" size={28} />
               </div>
               <div>
                 <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] mb-2">Direct Channel</div>
-                <div className="text-2xl font-display font-black tracking-tight italic">rushildhube1305@gmail.com</div>
+                <div className="text-2xl font-display font-black tracking-tight italic group-hover:text-val-red transition-colors">rushildhube1305@gmail.com</div>
               </div>
-            </div>
+            </a>
             <div className="flex items-start gap-8 group">
               <div className="w-16 h-16 glass-panel flex items-center justify-center group-hover:border-val-red transition-colors">
                 <Globe className="text-val-red" size={28} />
@@ -1619,7 +2171,7 @@ const ContactPage: React.FC = () => {
             </div>
             <a href="https://www.fiverr.com/rushildhube" target="_blank" className="flex items-start gap-8 group cursor-pointer">
               <div className="w-16 h-16 glass-panel flex items-center justify-center group-hover:border-val-red transition-colors">
-                <ShoppingBag className="text-val-red" size={28} />
+                <FiverrLogo className="text-val-red" size={32} />
               </div>
               <div>
                 <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] mb-2">Freelance Marketplace</div>
@@ -1629,11 +2181,11 @@ const ContactPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass-panel p-16 relative group">
+        <div className="glass-panel p-8 md:p-16 relative group">
           <div className="scanline"></div>
           <div className="absolute top-0 left-0 w-2 h-full bg-val-red"></div>
           
-          <form className="space-y-10" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-8 md:space-y-10" onSubmit={(e) => e.preventDefault()}>
             <div className="space-y-4">
               <label className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.5em]">Agent Name</label>
               <input 
@@ -1675,7 +2227,7 @@ const ContactPage: React.FC = () => {
 // --- Main App ---
 
 export default function App() {
-  const [appState, setAppState] = useState<AppState>('match-found');
+  const [appState, setAppState] = useState<AppState>('standby');
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
@@ -1699,14 +2251,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-val-dark text-val-light selection:bg-val-red selection:text-white relative font-sans overflow-x-hidden">
       <CustomCursor />
+      <TerminalOverlay />
       <SmoothScroll>
         <AnimatePresence mode="wait">
-          {appState === 'match-found' && (
-            <MatchFound key="match-found" onComplete={() => setAppState('loading')} />
-          )}
-          
-          {appState === 'loading' && (
-            <LoadingScreen key="loading" onComplete={() => setAppState('ready')} />
+          {appState === 'standby' && (
+            <LandingPage key="landing" onEnter={() => setAppState('ready')} />
           )}
 
           {appState === 'ready' && (
@@ -1730,6 +2279,7 @@ export default function App() {
               />
 
               <HUDOverlay />
+              <TerminalOverlay setPage={setCurrentPage} />
               
               <main className="relative z-10">
                 <AnimatePresence mode="wait">
@@ -1747,6 +2297,8 @@ export default function App() {
                     {currentPage === 'mission-detail' && selectedProject && (
                       <MissionDetailPage project={selectedProject} onBack={handleBackToMissions} />
                     )}
+                    {currentPage === 'core' && <SystemsCorePage />}
+                    {currentPage === 'docs' && <DocsPage />}
                     {currentPage === 'career' && <CareerPage />}
                     {currentPage === 'contact' && <ContactPage />}
                   </motion.div>
