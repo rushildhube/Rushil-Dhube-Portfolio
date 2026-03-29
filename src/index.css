@@ -70,7 +70,9 @@
 }
 
 .val-button {
-  @apply relative px-8 py-4 uppercase font-display font-black tracking-[0.2em] transition-all duration-300 overflow-hidden text-sm;
+  @apply relative px-8 py-4 uppercase font-display font-black tracking-[0.2em] transition-all overflow-hidden text-sm;
+  transition-duration: 800ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   clip-path: polygon(0 0, 100% 0, 100% 70%, 92% 100%, 0 100%);
 }
 
@@ -88,7 +90,9 @@
 }
 
 .val-card {
-  @apply border-l-4 border-val-red bg-val-gray/50 p-6 transition-all duration-300 hover:bg-val-gray/80 relative;
+  @apply border-l-4 border-val-red bg-val-gray/50 p-6 transition-all hover:bg-val-gray/80 relative;
+  transition-duration: 800ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .scanline {

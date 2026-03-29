@@ -321,13 +321,13 @@ const LIVE_SIM_TREE: Array<{
 const SmoothScroll: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      duration: 2.0,
+      easing: (t) => 1 - Math.pow(1 - t, 5),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 2,
+      wheelMultiplier: 0.8,
+      touchMultiplier: 1.5,
       infinite: false,
     });
 
@@ -351,9 +351,14 @@ const CustomCursor: React.FC = () => {
   const [isHovering, setIsHovering] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
 
+  const cursorX = useSpring(0, { stiffness: 100, damping: 25, mass: 0.5 });
+  const cursorY = useSpring(0, { stiffness: 100, damping: 25, mass: 0.5 });
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
+      cursorX.set(e.clientX);
+      cursorY.set(e.clientY);
     };
 
     const handleMouseOver = (e: MouseEvent) => {
@@ -363,7 +368,8 @@ const CustomCursor: React.FC = () => {
         target.tagName === 'A' || 
         target.closest('button') || 
         target.closest('a') ||
-        target.classList.contains('cursor-pointer')
+        target.classList.contains('cursor-pointer') ||
+        target.classList.contains('glass-panel')
       ) {
         setIsHovering(true);
       } else {
@@ -385,44 +391,44 @@ const CustomCursor: React.FC = () => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [cursorX, cursorY]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999] hidden lg:block">
-      {/* Target Crosshair */}
       <motion.div
-        animate={{
-          x: mousePos.x - 12,
-          y: mousePos.y - 12,
-          scale: isClicking ? 0.8 : 1,
+        style={{
+          x: cursorX,
+          y: cursorY,
+          translateX: '-50%',
+          translateY: '-50%',
         }}
-        transition={{ type: 'spring', damping: 40, stiffness: 600, mass: 0.2 }}
-        className="w-[24px] h-[24px] fixed top-0 left-0 flex items-center justify-center transform-gpu mix-blend-difference"
+        animate={{
+          scale: isClicking ? 0.8 : isHovering ? 2.5 : 1,
+          opacity: isHovering ? 0.8 : 1
+        }}
+        transition={{ type: 'spring', damping: 20, stiffness: 200, mass: 0.2 }}
+        className={`fixed top-0 left-0 flex items-center justify-center transform-gpu mix-blend-difference rounded-full ${isHovering ? 'w-[30px] h-[30px] bg-white/10 backdrop-blur-sm border border-val-red/30' : 'w-[24px] h-[24px]'}`}
       >
-        <div className="w-[3px] h-[3px] bg-val-red/80 rounded-full" />
+        <div className={`w-[3px] h-[3px] bg-val-red/80 rounded-full transition-all ${isHovering ? 'scale-0' : 'scale-100'}`} />
         
-        {/* Top Reticle Line */}
         <motion.div 
           initial={false}
-          animate={{ y: isHovering ? -8 : -5, opacity: isHovering ? 1 : 0.5 }}
+          animate={{ y: isHovering ? -15 : -5, opacity: isHovering ? 0 : 0.5 }}
           className="absolute top-0 left-[11px] w-[2px] h-[6px] bg-val-red"
         />
-        {/* Bottom Reticle Line */}
         <motion.div 
           initial={false}
-          animate={{ y: isHovering ? 8 : 5, opacity: isHovering ? 1 : 0.5 }}
+          animate={{ y: isHovering ? 15 : 5, opacity: isHovering ? 0 : 0.5 }}
           className="absolute bottom-0 left-[11px] w-[2px] h-[6px] bg-val-red"
         />
-        {/* Left Reticle Line */}
         <motion.div 
           initial={false}
-          animate={{ x: isHovering ? -8 : -5, opacity: isHovering ? 1 : 0.5 }}
+          animate={{ x: isHovering ? -15 : -5, opacity: isHovering ? 0 : 0.5 }}
           className="absolute left-0 top-[11px] h-[2px] w-[6px] bg-val-red"
         />
-        {/* Right Reticle Line */}
         <motion.div 
           initial={false}
-          animate={{ x: isHovering ? 8 : 5, opacity: isHovering ? 1 : 0.5 }}
+          animate={{ x: isHovering ? 15 : 5, opacity: isHovering ? 0 : 0.5 }}
           className="absolute right-0 top-[11px] h-[2px] w-[6px] bg-val-red"
         />
       </motion.div>
@@ -432,7 +438,7 @@ const CustomCursor: React.FC = () => {
 
 const Magnetic: React.FC<{ children: React.ReactNode, strength?: number }> = ({ children, strength = 0.5 }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 0, y: 0, rotateX: 0, rotateY: 0, scale: 1 });
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!ref.current) return;
@@ -440,13 +446,20 @@ const Magnetic: React.FC<{ children: React.ReactNode, strength?: number }> = ({ 
     const { left, top, width, height } = ref.current.getBoundingClientRect();
     const centerX = left + width / 2;
     const centerY = top + height / 2;
+    
+    // Position offset
     const x = (clientX - centerX) * strength;
     const y = (clientY - centerY) * strength;
-    setPosition({ x, y });
+
+    // 3D Tilt calculation
+    const rotateX = ((clientY - centerY) / (height / 2)) * -15 * strength;
+    const rotateY = ((clientX - centerX) / (width / 2)) * 15 * strength;
+
+    setPosition({ x, y, rotateX, rotateY, scale: 1.05 });
   };
 
   const handleMouseLeave = () => {
-    setPosition({ x: 0, y: 0 });
+    setPosition({ x: 0, y: 0, rotateX: 0, rotateY: 0, scale: 1 });
   };
 
   return (
@@ -454,8 +467,16 @@ const Magnetic: React.FC<{ children: React.ReactNode, strength?: number }> = ({ 
       ref={ref}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      animate={{ x: position.x, y: position.y }}
-      transition={{ type: 'spring', damping: 15, stiffness: 150, mass: 0.1 }}
+      animate={{ 
+        x: position.x, 
+        y: position.y, 
+        rotateX: position.rotateX, 
+        rotateY: position.rotateY,
+        scale: position.scale,
+        z: position.scale > 1 ? 50 : 0 
+      }}
+      transition={{ type: 'spring', damping: 20, stiffness: 150, mass: 0.1 }}
+      style={{ transformStyle: 'preserve-3d' }}
     >
       {children}
     </motion.div>
@@ -470,11 +491,11 @@ const StaggeredText: React.FC<{ text: string, className?: string, delay?: number
       {items.map((item, i) => (
         <span key={i} className={`inline-block overflow-hidden ${by === 'word' ? 'mr-[0.25em]' : ''}`}>
           <motion.span
-            initial={{ y: "100%", opacity: 0, rotateX: 45 }}
-            animate={{ y: 0, opacity: 1, rotateX: 0 }}
+            initial={{ y: "150%", opacity: 0, rotateX: 60, filter: 'blur(8px)' }}
+            animate={{ y: 0, opacity: 1, rotateX: 0, filter: 'blur(0px)' }}
             transition={{ 
-              duration: 0.6, 
-              delay: delay + (i * (by === 'word' ? 0.1 : 0.03)),
+              duration: 1.2, 
+              delay: delay + (i * (by === 'word' ? 0.08 : 0.02)),
               ease: [0.22, 1, 0.36, 1]
             }}
             className="inline-block origin-bottom"
@@ -488,18 +509,25 @@ const StaggeredText: React.FC<{ text: string, className?: string, delay?: number
 };
 
 const ScrollReveal: React.FC<{ children: React.ReactNode, direction?: 'up' | 'down' | 'left' | 'right' }> = ({ children, direction = 'up' }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+
   const variants = {
     hidden: {
       opacity: 0,
-      x: direction === 'left' ? -50 : direction === 'right' ? 50 : 0,
+      x: direction === 'left' ? -30 : direction === 'right' ? 30 : 0,
       y: direction === 'up' ? 50 : direction === 'down' ? -50 : 0,
+      scale: 0.95,
+      filter: 'blur(10px)',
     },
     visible: {
       opacity: 1,
       x: 0,
       y: 0,
+      scale: 1,
+      filter: 'blur(0px)',
       transition: {
-        duration: 0.8,
+        duration: 1.2,
         ease: [0.22, 1, 0.36, 1],
       },
     },
@@ -507,12 +535,25 @@ const ScrollReveal: React.FC<{ children: React.ReactNode, direction?: 'up' | 'do
 
   return (
     <motion.div
+      ref={ref}
       initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, margin: "-100px" }}
+      animate={isInView ? "visible" : "hidden"}
       variants={variants}
     >
-      {children}
+      <motion.div
+        animate={isInView ? {
+          y: [0, -8, 0],
+          rotate: [0, 0.5, 0],
+        } : {}}
+        transition={{
+          duration: 6 + Math.random() * 2,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: Math.random() * 2,
+        }}
+      >
+        {children}
+      </motion.div>
     </motion.div>
   );
 };
@@ -525,17 +566,27 @@ const ParallaxImage: React.FC<{ src: string, alt: string, strength?: number, cla
   });
 
   const y = useTransform(scrollYProgress, [0, 1], [-strength, strength]);
-  const scale = useTransform(scrollYProgress, [0, 0.5, 1], [1.2, 1, 1.2]);
+  const scaleScroll = useTransform(scrollYProgress, [0, 0.5, 1], [1.3, 1.05, 1.3]);
+  const blur = useTransform(scrollYProgress, [0, 0.5, 1], ['blur(4px)', 'blur(0px)', 'blur(4px)']);
 
   return (
     <div ref={ref} className={`relative overflow-hidden ${className}`}>
-      <motion.img
-        src={src}
-        alt={alt}
-        style={{ y, scale }}
-        className="w-full h-full object-cover"
-        referrerPolicy="no-referrer"
-      />
+      <motion.div 
+        style={{ y, filter: blur, scale: scaleScroll }} 
+        className="w-full h-full"
+      >
+        <motion.img
+          src={src}
+          alt={alt}
+          className="w-full h-full object-cover origin-center"
+          referrerPolicy="no-referrer"
+          whileHover={{
+            scale: 1.1,
+            rotate: 1,
+            transition: { duration: 1, ease: [0.22, 1, 0.36, 1] }
+          }}
+        />
+      </motion.div>
     </div>
   );
 };
@@ -570,16 +621,16 @@ const HorizontalScroll: React.FC<{ children: React.ReactNode, title: string }> =
 
 const TextReveal: React.FC<{ text: string, className?: string }> = ({ text, className = "" }) => {
   const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start 0.9", "start 0.25"]
-  });
-
-  const opacity = useTransform(scrollYProgress, [0, 1], [0.1, 1]);
-  const scale = useTransform(scrollYProgress, [0, 1], [0.95, 1]);
+  const isInView = useInView(ref, { once: true, margin: "-10px" });
 
   return (
-    <motion.div ref={ref} style={{ opacity, scale }} className={className}>
+    <motion.div 
+      ref={ref} 
+      initial={{ opacity: 0, scale: 0.8, y: 50, filter: 'blur(10px)' }}
+      animate={isInView ? { opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' } : {}}
+      transition={{ duration: 1.2, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
       {text}
     </motion.div>
   );
@@ -600,10 +651,22 @@ const MaskReveal: React.FC<{ children: React.ReactNode, delay?: number, directio
       variants={variants}
       initial="hidden"
       animate={isInView ? "visible" : "hidden"}
-      transition={{ duration: 1, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 1.5, delay, ease: [0.22, 1, 0.36, 1] }}
       className={className}
     >
-      {children}
+      <motion.div
+        animate={isInView ? {
+          y: [0, -5, 0],
+        } : {}}
+        transition={{
+          duration: 5 + Math.random() * 2,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+        className="h-full w-full"
+      >
+        {children}
+      </motion.div>
     </motion.div>
   );
 };
@@ -1830,48 +1893,132 @@ const AgentsPage: React.FC = () => {
 };
 
 const DocsPage: React.FC = () => {
-  const categories = [
-    { title: 'SYSTEM_ARCH', items: ['Neural Loadout', 'Core Backend', 'Uplink Protocols'], icon: Cpu },
-    { title: 'OPERATIONAL', items: ['Vision Diagnostics', 'NLP Matrix', 'Forge Pipelines'], icon: Zap },
-    { title: 'SECURITY', items: ['Auth_v4.0', 'Radiant Clearance', 'Secure Comms'], icon: ShieldCheck }
-  ];
-
   return (
-    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 flex flex-col items-center">
-      <div className="max-w-7xl w-full">
-        <div className="flex flex-col items-center gap-6 mb-20 text-center">
-          <div className="flex items-center gap-4">
-            <div className="w-2 h-8 bg-val-red"></div>
-            <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">SYSTEM_DOCUMENTATION // INTEL</h2>
+    <div className="min-h-screen pt-32 pb-32 px-6 md:px-12 lg:px-24 flex flex-col items-center w-full">
+      <div className="max-w-4xl w-full">
+        <ScrollReveal direction="up">
+          <div className="flex flex-col items-center gap-6 mb-20 text-center">
+            <div className="flex items-center gap-4">
+              <div className="w-2 h-8 bg-val-red"></div>
+              <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">SYSTEM_DOCUMENTATION</h2>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-display font-black tracking-tighter italic uppercase text-white">INTEL_BRIEFING</h1>
+            <p className="text-val-light/50 font-mono text-sm uppercase tracking-[0.2em] max-w-2xl mt-4">
+              Comprehensive database covering the operative, the architecture, and the command console.
+            </p>
           </div>
-          <h1 className="text-6xl md:text-8xl font-display font-black tracking-tighter italic uppercase">INTEL_BRIEFING</h1>
-          <p className="text-val-light/40 font-mono text-xs uppercase tracking-[0.3em] max-w-xl">
-            Direct access to the tactical blueprints and technical specifications of the Rushil OS.
-          </p>
-        </div>
+        </ScrollReveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {categories.map((cat, idx) => (
-            <div key={idx} className="glass-panel p-12 relative group hover:border-val-red transition-all">
+        <div className="space-y-32">
+          {/* SECTION: ABOUT ME */}
+          <ScrollReveal direction="up">
+            <div className="border border-val-border glass-panel p-8 relative group hover:border-val-red transition-all">
               <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-40 transition-opacity">
-                <cat.icon size={64} className="text-val-red" />
+                <User size={64} className="text-val-red" />
               </div>
-              <div className="flex flex-col gap-8 relative z-10">
-                <h3 className="text-val-red font-display font-black text-xs tracking-[0.5em] uppercase">[{cat.title}]</h3>
-                <div className="space-y-6">
-                  {cat.items.map((item, i) => (
-                    <div key={i} className="flex items-center gap-4 group/item cursor-pointer">
-                      <div className="w-1.5 h-1.5 bg-val-red/40 group-hover/item:bg-val-red transition-colors"></div>
-                      <span className="text-xl font-display font-black italic tracking-tight uppercase group-hover/item:translate-x-2 transition-transform">{item}</span>
-                    </div>
-                  ))}
-                </div>
-                <button className="mt-4 text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] hover:text-val-red transition-colors text-left uppercase">
-                  Request_Access_Uplink {" >> "}
-                </button>
+              <h3 className="text-val-red font-display font-black text-xs tracking-[0.5em] uppercase mb-8">[ THE_OPERATIVE ]</h3>
+              <h2 className="text-4xl font-display font-black uppercase tracking-tight italic text-white mb-6">About Rushil Dhube</h2>
+              <div className="font-sans text-val-light/80 space-y-4 max-w-2xl leading-relaxed text-lg relative z-10">
+                <p>
+                  I am an AI & Machine Learning Engineer based in Pune, specializing in <strong>Healthcare Diagnostics, Computer Vision, and Automation Pipelines</strong>. 
+                  Currently pursuing my B.E. at ISBM College of Engineering, I build production-grade intelligence systems—translating complex neural architectures into real-world impact.
+                </p>
+                <p>
+                  My core directive is solving high-stakes problems: from classifying retinal and dental diseases using state-of-the-art Vision Transformers to engineering automated defense systems against deepfakes and malicious URLs.
+                </p>
               </div>
             </div>
-          ))}
+          </ScrollReveal>
+
+          {/* SECTION: TERMINAL */}
+          <ScrollReveal direction="up">
+            <div className="border border-val-border glass-panel p-8 relative group hover:border-val-red transition-all">
+              <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-40 transition-opacity">
+                <Terminal size={64} className="text-val-red" />
+              </div>
+              <h3 className="text-val-red font-display font-black text-xs tracking-[0.5em] uppercase mb-8">[ COMMAND_CONSOLE ]</h3>
+              <h2 className="text-4xl font-display font-black uppercase tracking-tight italic text-white mb-6">Terminal Usage</h2>
+              <div className="font-sans text-val-light/80 space-y-6 max-w-3xl leading-relaxed text-lg relative z-10">
+                <p>
+                  The terminal overlay (toggled via the <code>`</code> backtick key or the bottom-right icon) isn't just aesthetic—it's a fully functional directory structure of this portfolio.
+                </p>
+                <div className="bg-val-gray/30 p-4 border-l-2 border-val-red/50 font-mono text-sm space-y-3 hidden sm:block">
+                  <div className="flex gap-4">
+                    <span className="text-val-red font-bold w-20">help</span>
+                    <span className="text-val-light/70">List all available commands and operations.</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-val-red font-bold w-20">cd</span>
+                    <span className="text-val-light/70">Navigate between sectors (e.g., cd missions, cd career).</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-val-red font-bold w-20">ls</span>
+                    <span className="text-val-light/70">List available nodes in the current sector.</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-val-red font-bold w-20">open</span>
+                    <span className="text-val-light/70">Execute a specific sector or project detail page.</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <span className="text-val-red font-bold w-20">sudo</span>
+                    <span className="text-val-light/70">Attempt authorized deep system access.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollReveal>
+
+          {/* SECTION: WEBSITE ARCH */}
+          <ScrollReveal direction="up">
+            <div className="border border-val-border glass-panel p-8 relative group hover:border-val-red transition-all">
+              <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-40 transition-opacity">
+                <Cpu size={64} className="text-val-red" />
+              </div>
+              <h3 className="text-val-red font-display font-black text-xs tracking-[0.5em] uppercase mb-8">[ SYSTEM_ARCH ]</h3>
+              <h2 className="text-4xl font-display font-black uppercase tracking-tight italic text-white mb-6">Website Build</h2>
+              <div className="font-sans text-val-light/80 space-y-4 max-w-2xl leading-relaxed text-lg relative z-10">
+                <p>
+                  This responsive dossier was engineered using <strong>React 19</strong> + <strong>Vite</strong> + <strong>Tailwind CSS V4</strong>. Heavily inspired by tactical interfaces and neo-cyberpunk aesthetics, it is built to feel fast, fluid, and cinematic.
+                </p>
+                <p>
+                  <strong>Motion & Physics:</strong> The continuous floating "zero-gravity" aesthetic, 3D cursor trailing, and parallax depths are driven by <strong>Framer Motion (v12)</strong>. Smooth scroll inertia is powered by <strong>Lenis</strong>.
+                </p>
+                <p>
+                  <strong>Simulation:</strong> The interactive skills node graph runs on <strong>react-force-graph-2d</strong>.
+                </p>
+              </div>
+            </div>
+          </ScrollReveal>
+
+          {/* SECTION: FAQS */}
+          <ScrollReveal direction="up">
+            <div className="border border-val-border glass-panel p-8 relative group hover:border-val-red transition-all">
+              <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-40 transition-opacity">
+                <Info size={64} className="text-val-red" />
+              </div>
+              <h3 className="text-val-red font-display font-black text-xs tracking-[0.5em] uppercase mb-8">[ INTEL_QUERIES ]</h3>
+              <h2 className="text-4xl font-display font-black uppercase tracking-tight italic text-white mb-6">F.A.Q.</h2>
+              <div className="font-sans text-val-light/80 space-y-8 max-w-2xl leading-relaxed text-lg relative z-10">
+                
+                <div className="space-y-2">
+                  <h4 className="text-val-red font-display font-black tracking-widest text-xl">01. ARE YOU AVAILABLE FOR HIRE?</h4>
+                  <p>Yes. I am actively seeking full-time roles, internships, and freelance contracts in AI, Machine Learning, and Backend Engineering.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-val-red font-display font-black tracking-widest text-xl">02. WHY THE AGENT THEME?</h4>
+                  <p>I build autonomous problem-solving AI "Agents". Designing my portfolio around the concept of a tactical intelligence database felt like the truest reflection of the systems I architect.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-val-red font-display font-black tracking-widest text-xl">03. WHAT IS YOUR TECH STACK?</h4>
+                  <p>Python dominates my backend & ML pipelines (PyTorch, TensorFlow, FastAPI, Django). For agentic automation, I orchestrate via Make.com and Google Gemini/Veo. I deploy using Docker, GCP, and Git workflows.</p>
+                </div>
+
+              </div>
+            </div>
+          </ScrollReveal>
+          
         </div>
       </div>
     </div>
