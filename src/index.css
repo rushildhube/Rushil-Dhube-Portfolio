@@ -42,6 +42,12 @@
     overflow: hidden;
   }
 
+  html.lenis-stopped-terminal,
+  html.lenis-stopped-terminal body {
+    overflow: hidden;
+    height: 100%;
+  }
+
   .lenis.lenis-scrolling iframe {
     pointer-events: none;
   }

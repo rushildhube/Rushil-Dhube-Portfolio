@@ -4,9 +4,10 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent, useInView } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent, useInView, useDragControls } from 'motion/react';
 import Lenis from 'lenis';
 import ForceGraph2D from 'react-force-graph-2d';
+import { executeTerminalInput, getTerminalBootHistory, getTerminalCompletions } from './terminal/engine';
 import { 
   Github, 
   Linkedin, 
@@ -183,6 +184,135 @@ const PROJECTS: Project[] = [
     live: '#',
     metrics: 'Safe, personalized diet recommendations',
     tools: ['TruLens', 'LangChain', 'PostgreSQL']
+  }
+];
+
+const LIVE_PROFILE = {
+  role: 'AI & ML Engineer',
+  focus: 'Healthcare AI, Computer Vision, NLP, and Automation Systems',
+  summary:
+    'AI & Machine Learning Engineer specializing in healthcare AI and computer vision with production deployment experience across diagnostics, security, and automation.',
+  education: {
+    degree: 'B.E. in Artificial Intelligence & Machine Learning',
+    institution: 'ISBM College of Engineering, Pune',
+    cgpa: '7.85/10',
+    sgpa: '9.07/10',
+    years: '2022-2026'
+  },
+  certifications: ['NPTEL Python for Data Science (Top 5%)', 'Coursera: Supervised ML (Andrew Ng)', 'C/C++ (95%)', 'Linux (79.17%)', 'Arduino (95%)']
+};
+
+const LIVE_SIM_CLUSTERS: Array<{ id: string; group: number; val: number; skills: string[] }> = [
+  {
+    id: 'ML_DL_Engineering',
+    group: 1,
+    val: 44,
+    skills: ['TensorFlow', 'PyTorch', 'Keras', 'Scikit-Learn', 'Hugging Face', 'Feature Engineering', 'Statistical Analysis']
+  },
+  {
+    id: 'Computer_Vision_Healthcare',
+    group: 2,
+    val: 46,
+    skills: ['OpenCV', 'CNNs', 'Vision Transformers (ViT)', 'Medical Image Processing', 'Image Segmentation', 'Fundus Diagnosis']
+  },
+  {
+    id: 'NLP_RAG_GenAI',
+    group: 3,
+    val: 42,
+    skills: ['NLP', 'RAG', 'LLMs', 'Transformers', 'Qdrant', 'TruLens', 'SSE Streaming']
+  },
+  {
+    id: 'Backend_API_Systems',
+    group: 4,
+    val: 40,
+    skills: ['FastAPI', 'Django', 'Flask', 'REST APIs', 'OAuth2/JWT', 'MongoDB', 'PostgreSQL', 'SQLAlchemy (async)']
+  },
+  {
+    id: 'Automation_Agent_Pipelines',
+    group: 5,
+    val: 38,
+    skills: ['Make.com', 'Meta Graph API', 'Google Gemini', 'Google Veo', 'STT/TTS', 'Telephony', 'Workflow Orchestration']
+  },
+  {
+    id: 'DevOps_Cloud_Tooling',
+    group: 6,
+    val: 34,
+    skills: ['Docker', 'CI/CD', 'Git', 'GitHub', 'Jupyter', 'GCP', 'Linux', 'Windows']
+  }
+];
+
+const LIVE_SIM_TREE: Array<{
+  id: string;
+  group: number;
+  val: number;
+  branches: Array<{ id: string; group: number; val: number; nodes: string[] }>;
+  projects: string[];
+}> = [
+  {
+    id: 'ML_DL_Engineering',
+    group: 1,
+    val: 44,
+    branches: [
+      { id: 'ML_Frameworks', group: 1, val: 24, nodes: ['TensorFlow', 'PyTorch', 'Keras', 'Scikit-Learn', 'Hugging Face Transformers'] },
+      { id: 'ML_Modeling', group: 1, val: 22, nodes: ['Feature Engineering', 'Statistical Analysis', 'Sequence Models', 'Ensemble Methods', 'Model Evaluation'] },
+      { id: 'ML_DataScience', group: 1, val: 22, nodes: ['Pandas', 'NumPy', 'Matplotlib', 'Seaborn', 'Data Preprocessing'] }
+    ],
+    projects: ['NeuroMedix', 'Deepfake Detection System']
+  },
+  {
+    id: 'Computer_Vision_Healthcare',
+    group: 2,
+    val: 46,
+    branches: [
+      { id: 'Vision_Models', group: 2, val: 24, nodes: ['CNNs', 'Vision Transformers (ViT)', 'ResNet-50', 'Image Segmentation'] },
+      { id: 'Vision_Medical', group: 2, val: 24, nodes: ['Medical Image Processing', 'Retinal Disease Detection', 'Dental Condition Classification', 'Fundus Analysis'] },
+      { id: 'Vision_Tooling', group: 2, val: 20, nodes: ['OpenCV', 'Image Augmentation', 'Confusion Matrix', 'Hyperparameter Tuning'] }
+    ],
+    projects: ['Dental Disease Classification', 'Eye Disease Classifier']
+  },
+  {
+    id: 'NLP_RAG_GenAI',
+    group: 3,
+    val: 42,
+    branches: [
+      { id: 'NLP_Core', group: 3, val: 24, nodes: ['NLP', 'Transformers', 'LLMs', 'BERT', 'Prompt Engineering'] },
+      { id: 'RAG_Stack', group: 3, val: 24, nodes: ['RAG Design', 'Qdrant', 'Embeddings', 'Chunking', 'Vector Retrieval'] },
+      { id: 'AI_Safety', group: 3, val: 20, nodes: ['PII Masking', 'Safety Guardrails', 'Diet Constraint Checks', 'TruLens Evaluation', 'Empathy Metrics'] }
+    ],
+    projects: ['WellBe Revive 360', 'ConsumeWise']
+  },
+  {
+    id: 'Backend_API_Systems',
+    group: 4,
+    val: 40,
+    branches: [
+      { id: 'Backend_Frameworks', group: 4, val: 24, nodes: ['FastAPI', 'Django', 'Flask', 'REST APIs', 'SSE Streaming'] },
+      { id: 'Backend_Data', group: 4, val: 22, nodes: ['PostgreSQL', 'MongoDB', 'SQLAlchemy (async)', 'JSONB Models', 'Database Design'] },
+      { id: 'Backend_Security', group: 4, val: 20, nodes: ['OAuth2/JWT', 'Auth Flows', 'API Hardening', 'Input Validation', 'Secure Integrations'] }
+    ],
+    projects: ['Safe Surf AI', 'MediTrack']
+  },
+  {
+    id: 'Automation_Agent_Pipelines',
+    group: 5,
+    val: 38,
+    branches: [
+      { id: 'Automation_Orchestration', group: 5, val: 24, nodes: ['Make.com', 'Workflow Orchestration', 'Multi-step Automations', 'Campaign Pipelines'] },
+      { id: 'Automation_GenAI', group: 5, val: 22, nodes: ['Google Gemini', 'Google Veo', 'Asset Generation', 'Creative Pipelines'] },
+      { id: 'Automation_VoiceChat', group: 5, val: 20, nodes: ['STT', 'TTS', 'Speech-to-Speech', 'Telephony Integrations', 'Chat Agent Flows'] }
+    ],
+    projects: ['SniperThink Pipeline Stack', 'Meta Graph API Integrations']
+  },
+  {
+    id: 'DevOps_Cloud_Tooling',
+    group: 6,
+    val: 34,
+    branches: [
+      { id: 'DevOps_Practices', group: 6, val: 22, nodes: ['Docker', 'CI/CD', 'Testing', 'Documentation', 'Reproducible Environments'] },
+      { id: 'Cloud_Platforms', group: 6, val: 22, nodes: ['Google Cloud Platform', 'Linux', 'Windows', 'Deployment Workflows'] },
+      { id: 'Engineering_Tools', group: 6, val: 20, nodes: ['Git', 'GitHub', 'VS Code', 'Jupyter Notebook', 'Google Colab'] }
+    ],
+    projects: ['Production MVP Deployments', 'Internship Demo Deployments']
   }
 ];
 
@@ -387,7 +517,7 @@ const ScrollReveal: React.FC<{ children: React.ReactNode, direction?: 'up' | 'do
   );
 };
 
-const ParallaxImage: React.FC<{ src: string, alt: string, strength?: number, className?: string }> = ({ src, alt, strength = 50, className = "" }) => {
+const ParallaxImage: React.FC<{ src: string, alt: string, strength?: number, className?: string }> = ({ src, alt, strength = 100, className = "" }) => {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -395,17 +525,46 @@ const ParallaxImage: React.FC<{ src: string, alt: string, strength?: number, cla
   });
 
   const y = useTransform(scrollYProgress, [0, 1], [-strength, strength]);
+  const scale = useTransform(scrollYProgress, [0, 0.5, 1], [1.2, 1, 1.2]);
 
   return (
     <div ref={ref} className={`relative overflow-hidden ${className}`}>
       <motion.img
         src={src}
         alt={alt}
-        style={{ y, scale: 1.2 }}
+        style={{ y, scale }}
         className="w-full h-full object-cover"
         referrerPolicy="no-referrer"
       />
     </div>
+  );
+};
+
+const HorizontalScroll: React.FC<{ children: React.ReactNode, title: string }> = ({ children, title }) => {
+  const targetRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: targetRef,
+  });
+
+  const x = useTransform(scrollYProgress, [0, 1], ["0%", "-70%"]);
+
+  return (
+    <section ref={targetRef} className="relative h-[300vh] bg-val-dark/50">
+      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
+        <div className="absolute top-20 left-12 md:left-24 z-20">
+          <h2 className="text-val-red text-xs font-mono tracking-[1em] uppercase mb-4 opacity-50">ACTIVE_REEL</h2>
+          <h3 className="text-6xl md:text-8xl font-display font-black italic tracking-tighter uppercase whitespace-nowrap text-white/5 pointer-events-none absolute -top-10 -left-10">
+            {title}
+          </h3>
+          <h3 className="text-4xl md:text-6xl font-display font-black italic tracking-tighter uppercase text-white">
+            {title}
+          </h3>
+        </div>
+        <motion.div style={{ x }} className="flex gap-12 px-12 md:px-24">
+          {children}
+        </motion.div>
+      </div>
+    </section>
   );
 };
 
@@ -583,14 +742,37 @@ const NavItem: React.FC<{ label: string, meaning: string, active: boolean, onCli
 
 
 const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
+  const MAX_COMMAND_HISTORY = 100;
   const [isOpen, setIsOpen] = useState(false);
-  const [history, setHistory] = useState<{ type: 'command' | 'output', text: string }[]>([
-    { type: 'output', text: 'RUSHIL_OS v4.0.1 (x86_64)' },
-    { type: 'output', text: 'Type "help" for a list of commands.' }
-  ]);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const dragControls = useDragControls();
+  const [history, setHistory] = useState<{ type: 'command' | 'output', text: string }[]>(
+    getTerminalBootHistory().map((line) => ({ type: 'output', text: line.text }))
+  );
   const [input, setInput] = useState('');
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyCursor, setHistoryCursor] = useState(-1);
+  const [completionBase, setCompletionBase] = useState('');
+  const [completionCandidates, setCompletionCandidates] = useState<string[]>([]);
+  const [completionIndex, setCompletionIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  const resetTerminalSession = (lastCommand?: string) => {
+    const base = getTerminalBootHistory().map((line) => ({ type: 'output', text: line.text } as const));
+    if (lastCommand) {
+      base.push({ type: 'output', text: `Last command: ${lastCommand}` });
+    }
+    setHistory(base);
+    setInput('');
+    setHistoryCursor(-1);
+    setCompletionBase('');
+    setCompletionCandidates([]);
+    setCompletionIndex(-1);
+    setIsMinimized(false);
+    setIsMaximized(false);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -612,89 +794,120 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [isOpen, history]);
 
+
   const handleCommand = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
     const cmd = input.trim();
     const newHistory = [...history, { type: 'command', text: cmd } as const];
-    
-    switch(cmd.toLowerCase()) {
-      case 'help':
-        newHistory.push(
-          { type: 'output', text: 'Available commands:' },
-          { type: 'output', text: '  whoami      - Print agent bio' },
-          { type: 'output', text: '  ls          - List available sectors' },
-          { type: 'output', text: '  vision      - Initialize vision sector' },
-          { type: 'output', text: '  skills      - Load tech arsenal' },
-          { type: 'output', text: '  projects    - Open mission logs' },
-          { type: 'output', text: '  experience  - View service history' },
-          { type: 'output', text: '  clear       - Clear terminal' },
-          { type: 'output', text: '  exit        - Terminate connection' }
-        );
-        break;
-      case 'whoami':
-        newHistory.push({ type: 'output', text: 'Rushil Dhube: AI/ML Engineer architecting intelligent systems bridging complex data and real-world impact.' });
-        break;
-      case 'ls':
-        newHistory.push({ type: 'output', text: 'Sectors: home, agents, core, missions, career, docs, contact' });
-        newHistory.push({ type: 'output', text: 'Files: dossier.pdf, architecture.sys, kernel.bin' });
-        break;
-      case 'agents':
-      case 'vision':
-        setPage('agents');
-        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to AGENT_INTEL...' });
-        break;
-      case 'core':
-      case 'skills':
-        setPage('core');
-        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to TECHNICAL_ARSENAL...' });
-        break;
-      case 'missions':
-      case 'projects':
-        setPage('missions');
-        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to ACTIVE_OPERATIONS...' });
-        break;
-      case 'career':
-      case 'experience':
-        setPage('career');
-        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to SERVICE_HISTORY...' });
-        break;
-      case 'docs':
-      case 'intel':
-        setPage('docs');
-        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to INTEL_BRIEFING...' });
-        break;
-      case 'contact':
-        setPage('contact');
-        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Redirecting to COMMS_CENTER...' });
-        break;
-      case 'home':
-        setPage('home');
-        newHistory.push({ type: 'output', text: 'SECURE_UPLINK: Returning to BASE_HUB...' });
-        break;
-      case 'cat dossier.pdf':
-      case 'cat files':
-        newHistory.push({ type: 'output', text: 'Access denied: File is classified. Initiate [DOWNLOAD_DOSSIER] via GUI for access.'});
-        break;
-      case 'clear':
-        setHistory([]);
-        setInput('');
-        return;
-      case 'exit':
-        setIsOpen(false);
-        setInput('');
-        return;
-      default:
-        newHistory.push({ type: 'output', text: `command not found: ${cmd}. Type 'help' for available commands.` });
+    setCommandHistory((prev) => [...prev, cmd].slice(-MAX_COMMAND_HISTORY));
+    setHistoryCursor(-1);
+    setCompletionBase('');
+    setCompletionCandidates([]);
+    setCompletionIndex(-1);
+
+    const result = executeTerminalInput(cmd);
+
+    if (result.action.type === 'clear') {
+      setHistory([]);
+      setInput('');
+      return;
     }
+
+    if (result.action.type === 'exit') {
+      setIsOpen(false);
+      resetTerminalSession(cmd);
+      return;
+    }
+
+    if (result.action.type === 'navigate') {
+      setPage(result.action.page);
+      result.action.message.forEach((message) => {
+        newHistory.push({ type: 'output', text: message });
+      });
+    }
+
+    result.lines.forEach((line) => {
+      newHistory.push({ type: line.type, text: line.text });
+    });
 
     setHistory(newHistory);
     setInput('');
   };
 
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+
+      const shouldRecompute = completionBase !== input || completionCandidates.length === 0;
+      const candidates = shouldRecompute ? getTerminalCompletions(input) : completionCandidates;
+
+      if (candidates.length === 0) return;
+
+      let nextIndex = 0;
+      if (!shouldRecompute) {
+        nextIndex = e.shiftKey
+          ? (completionIndex <= 0 ? candidates.length - 1 : completionIndex - 1)
+          : (completionIndex + 1) % candidates.length;
+      }
+
+      setCompletionBase(input);
+      setCompletionCandidates(candidates);
+      setCompletionIndex(nextIndex);
+      setInput(candidates[nextIndex]);
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (commandHistory.length === 0) return;
+
+      setHistoryCursor((prev) => {
+        const next = prev === -1 ? commandHistory.length - 1 : Math.max(0, prev - 1);
+        setInput(commandHistory[next] ?? '');
+        return next;
+      });
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (commandHistory.length === 0) return;
+
+      setHistoryCursor((prev) => {
+        if (prev === -1) return -1;
+        const next = prev + 1;
+        if (next >= commandHistory.length) {
+          setInput('');
+          return -1;
+        }
+        setInput(commandHistory[next] ?? '');
+        return next;
+      });
+      return;
+    }
+
+    if (completionCandidates.length > 0) {
+      setCompletionBase('');
+      setCompletionCandidates([]);
+      setCompletionIndex(-1);
+    }
+  };
+
+  const handleWindowDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isMaximized) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    dragControls.start(e);
+  };
+
+  const isSectionHeaderLine = (text: string) =>
+    /:$/.test(text) || /^(Help Index|Navigation Commands|FAQ Mode|FAQ Prompts With Use Cases|Command Matrix|Available commands|Quick Start)/i.test(text);
+
+  const isHintLine = (text: string) => /^Tip:|^Use case:|^Hint:/i.test(text);
+
+  const isBulletLine = (text: string) => /^\s*-\s|^\s*\d+\.\s/.test(text);
 
   return (
     <>
@@ -743,24 +956,37 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
       <AnimatePresence>
         {isOpen && !isMinimized && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 20 }}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className={`fixed z-[99999] font-mono text-sm shadow-[0_30px_80px_rgba(0,0,0,0.6),0_0_40px_rgba(255,70,85,0.1)] ${
               isMaximized
                 ? 'inset-0'
-                : 'bottom-16 left-1/2 -translate-x-1/2 w-[90vw] max-w-3xl h-[480px]'
+                : 'top-24 left-1/2 -translate-x-1/2 w-[90vw] max-w-3xl h-[480px]'
             } flex flex-col border border-val-red/30 bg-[#0d1117] overflow-hidden`}
             style={isMaximized ? {} : { borderRadius: '4px' }}
+            drag={!isMaximized}
+            dragControls={dragControls}
+            dragListener={false}
+            dragMomentum={false}
+            dragElastic={0.08}
             onClick={() => inputRef.current?.focus()}
           >
             {/* Title Bar */}
-            <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-val-border/60 flex-shrink-0 select-none">
+            <div
+              onPointerDown={handleWindowDragStart}
+              className={`flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-val-border/60 flex-shrink-0 select-none ${isMaximized ? '' : 'cursor-move'}`}
+            >
               {/* Window Controls */}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={(e) => { e.stopPropagation(); setIsOpen(false); setIsMinimized(false); setIsMaximized(false); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const last = commandHistory[commandHistory.length - 1];
+                    setIsOpen(false);
+                    resetTerminalSession(last);
+                  }}
                   className="w-3 h-3 rounded-full bg-[#ff5f57] hover:bg-[#ff3b30] transition-colors flex items-center justify-center group"
                   title="Close"
                 >
@@ -774,7 +1000,10 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
                   <span className="hidden group-hover:block text-[8px] text-black font-bold leading-none">−</span>
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setIsMaximized(m => !m); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMaximized((m) => !m);
+                  }}
                   className="w-3 h-3 rounded-full bg-[#28c840] hover:bg-[#32d74b] transition-colors flex items-center justify-center group"
                   title="Maximize"
                 >
@@ -793,11 +1022,40 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
             </div>
 
             {/* Terminal body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-2 bg-[#0d1117]">
+            <div
+              className="flex-1 overflow-y-auto p-5 space-y-2 bg-[#0d1117]"
+              onWheelCapture={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between border border-val-border/40 bg-[#0f141b] px-3 py-2">
+                <div className="text-[10px] font-mono text-val-light/40 uppercase tracking-[0.22em]">Path: /secure/rushil-terminal</div>
+                <div className="text-[10px] font-mono text-val-light/40 uppercase tracking-[0.22em]">Rolling memory active</div>
+              </div>
+
               {history.map((h, i) => (
-                <div key={i} className={`flex gap-3 ${h.type === 'command' ? 'text-white' : 'text-val-light/70'}`}>
+                <div
+                  key={i}
+                  className={`flex gap-3 ${
+                    h.type === 'command'
+                      ? 'text-white border-l-2 border-val-red/60 pl-2'
+                      : 'text-val-light/70'
+                  }`}
+                >
                   {h.type === 'command' && <span className="text-val-red min-w-fit text-xs">root@rushil:~$</span>}
-                  <span className={`text-xs ${ h.type === 'command' ? 'text-white font-semibold' : 'text-green-400 pl-6'}`}>{h.text}</span>
+                  <span
+                    className={`text-xs ${
+                      h.type === 'command'
+                        ? 'text-white font-semibold'
+                        : isSectionHeaderLine(h.text)
+                        ? 'text-cyan-300 font-semibold pl-2 uppercase tracking-[0.18em]'
+                        : isHintLine(h.text)
+                        ? 'text-yellow-300/90 pl-4 italic'
+                        : isBulletLine(h.text)
+                        ? 'text-green-300 pl-5'
+                        : 'text-green-400 pl-4'
+                    }`}
+                  >
+                    {h.text}
+                  </span>
                 </div>
               ))}
               <form onSubmit={handleCommand} className="flex gap-3 items-center">
@@ -806,13 +1064,40 @@ const TerminalOverlay: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) 
                   ref={inputRef}
                   type="text"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    setCompletionBase('');
+                    setCompletionCandidates([]);
+                    setCompletionIndex(-1);
+                  }}
+                  onKeyDown={handleInputKeyDown}
                   className="flex-1 bg-transparent outline-none border-none text-white font-semibold text-xs caret-val-red"
                   autoFocus
                   autoComplete="off"
                   spellCheck={false}
                 />
               </form>
+
+              {completionCandidates.length > 0 && (
+                <div className="mt-2 border border-val-border/40 bg-[#0f141b] px-3 py-2">
+                  <div className="text-[10px] font-mono text-val-light/40 uppercase tracking-[0.2em] mb-1">
+                    Tab Suggestions ({completionCandidates.length}) - Tab/Shift+Tab to cycle
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {completionCandidates.slice(0, 6).map((item, idx) => (
+                      <span
+                        key={item}
+                        className={`text-[10px] font-mono px-2 py-1 border ${
+                          idx === completionIndex ? 'border-val-red text-val-red bg-val-red/10' : 'border-val-border/50 text-val-light/60'
+                        }`}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div ref={endRef} />
             </div>
           </motion.div>
@@ -1065,7 +1350,7 @@ const LandingPage: React.FC<{ onEnter: () => void }> = ({ onEnter }) => {
 
         <div className="flex flex-col items-center gap-6">
           <h2 className="text-val-red font-display font-black text-sm tracking-[1em] uppercase animate-pulse">PERSONNEL_IDENTIFIED</h2>
-          <h1 className="text-6xl md:text-9xl font-display font-black tracking-tighter italic uppercase text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+          <h1 className="text-[clamp(2.5rem,10vw,8rem)] font-display font-black tracking-tighter italic uppercase text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.1)] leading-none text-center">
             RUSHIL <span className="text-val-red">//</span> DHUBE
           </h1>
           <div className="h-px w-full max-w-md bg-gradient-to-r from-transparent via-val-red to-transparent"></div>
@@ -1200,7 +1485,7 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
             </div>
           </div>
 
-          <h1 className="text-8xl md:text-[8.5rem] font-display font-black leading-[0.85] mb-6 tracking-tighter">
+          <h1 className="text-[clamp(3rem,12vw,8.5rem)] font-display font-black leading-[0.85] mb-6 tracking-tighter">
             <GlitchText className="block">RUSHIL</GlitchText>
             <StaggeredText text="DHUBE" delay={0.5} by="char" className="block" />
           </h1>
@@ -1208,16 +1493,16 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
           <div className="flex items-center w-full gap-4 mb-8">
             <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.8 }} className="h-px flex-1 bg-val-border origin-left" />
             <StaggeredText 
-              text="BACKEND & ML ARCHITECT" 
+              text="AI & ML ENGINEER" 
               className="text-lg md:text-2xl font-display font-black text-val-red tracking-[0.2em] italic whitespace-nowrap"
               delay={0.8}
             />
             <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.8 }} className="h-px flex-1 bg-val-border origin-right" />
           </div>
 
-          <div className="text-val-light/60 text-lg leading-relaxed mb-10 max-w-lg">
+          <div className="text-val-light/80 text-lg leading-relaxed mb-10 max-w-lg">
             <TextReveal 
-              text="Architecting intelligent systems that bridge the gap between complex data and real-world impact. From medical diagnostics to large-scale automation, I build the future of AI."
+              text={LIVE_PROFILE.summary}
             />
           </div>
           
@@ -1311,8 +1596,8 @@ const AgentsPage: React.FC = () => {
       title: 'CORE', 
       spec: 'Backend & Systems Engineering',
       icon: Terminal,
-      skills: ['FastAPI', 'Python Coding', 'Django', 'PostgreSQL', 'Docker', 'Asynchronous Systems', 'Cloud Architectures (GCP)'],
-      metrics: 'Scalable MVP deployments & production-ready backends',
+      skills: ['FastAPI', 'Django', 'Flask', 'PostgreSQL', 'MongoDB', 'OAuth2/JWT', 'Docker', 'Async APIs'],
+      metrics: 'Production-ready backend systems for AI workloads',
       desc: 'Architecting robust, mission-critical infrastructure and high-performance backend systems with a focus on code scalability and resilience.'
     },
     { 
@@ -1320,7 +1605,7 @@ const AgentsPage: React.FC = () => {
       title: 'FORGE', 
       spec: 'ML & Automation Pipelines',
       icon: Zap,
-      skills: ['Autonous Workflows', 'Make.com', 'Meta Graph API', 'LLM Integration', 'Dynamic STT/TTSPipelines'],
+      skills: ['Autonomous Workflows', 'Make.com', 'Meta Graph API', 'Google Gemini', 'Google Veo', 'STT/TTS + Telephony'],
       metrics: '75% reduction in manual content creation time',
       desc: 'Engineering sophisticated automation architectures that leverage GenAI to streamline complex business operations.'
     },
@@ -1329,7 +1614,7 @@ const AgentsPage: React.FC = () => {
       title: 'NEURO', 
       spec: 'NLP & RAG Engineering',
       icon: Cpu,
-      skills: ['Large Language Models (LLMs)', 'RAG Vector-DB Architectures', 'Sequence Models', 'Transformers', 'SafeAI Implementation'],
+      skills: ['Large Language Models (LLMs)', 'RAG Vector-DB Architectures', 'Transformers', 'Qdrant', 'TruLens Evaluation', 'Safety Guardrails'],
       metrics: '90%+ accuracy in specialized retrieval systems',
       desc: 'Specialist in building neural conversational systems and high-precision evaluation matrices for AI safety.'
     },
@@ -1841,10 +2126,10 @@ const MissionDetailPage: React.FC<{ project: Project, onBack: () => void }> = ({
 
 const CareerPage: React.FC = () => {
   const stats = [
-    { label: 'Diagnostic Accuracy', value: '92.4%', sub: 'Vision AI Systems' },
-    { label: 'System Efficiency', value: '75%', sub: 'Automation Gain' },
-    { label: 'Python Mastery', value: 'Top 5%', sub: 'NPTEL Certified' },
-    { label: 'Core Logic', value: '95%', sub: 'C/C++ Proficiency' }
+    { label: 'Dental Classifier', value: '92.28%', sub: 'Healthcare AI' },
+    { label: 'Retinal Classifier', value: '92.4%', sub: 'Medical Vision' },
+    { label: 'Automation Gain', value: '75%', sub: 'GenAI Workflows' },
+    { label: 'Current SGPA', value: '9.07', sub: 'B.E. AI & ML' }
   ];
 
   return (
@@ -1859,8 +2144,9 @@ const CareerPage: React.FC = () => {
           {stats.map((stat, idx) => (
             <ScrollReveal key={idx} direction="up">
               <div className="glass-panel p-8 border-b-2 border-val-red group hover:bg-val-red/5 transition-colors">
-                <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.3em] mb-2">{stat.label}</div>
+                <div className="text-[10px] font-mono text-val-light/60 uppercase tracking-[0.3em] mb-2">{stat.label}</div>
                 <div className="text-4xl font-display font-black text-val-red tracking-tighter italic">{stat.value}</div>
+                <div className="mt-2 text-[11px] font-mono text-val-light/50 uppercase tracking-[0.25em]">{stat.sub}</div>
               </div>
             </ScrollReveal>
           ))}
@@ -1880,8 +2166,10 @@ const CareerPage: React.FC = () => {
               
               <div className="space-y-10 relative before:absolute before:left-0 before:top-0 before:w-px before:h-full before:bg-val-border">
                 {[
-                  { role: 'GENAI AUTOMATION LEAD', company: 'Fiverr (Freelance)', year: '2023 - PRESENT', desc: 'Deploying high-impact automation pipelines and custom GenAI agents for global clients. Optimized workflow efficiency by 75% for 20+ projects.', status: 'ACTIVE' },
-                  { role: 'SYSTEMS ARCHITECT (INTERN)', company: 'Tech Forge Labs', year: 'JAN 2024 - JUNE 2024', desc: 'Engineered robust backend systems using FastAPI and monitored neural loadouts for medical classification models.', status: 'COMPLETED' }
+                  { role: 'ARTIFICIAL INTELLIGENCE ENGINEER', company: 'Ethosh', year: 'DEC 2025 - PRESENT', desc: 'Building production-oriented AI systems and contributing to end-to-end intelligent product delivery.', status: 'ACTIVE' },
+                  { role: 'AI ENGINEER', company: 'SniperThink', year: 'SEP 2025 - DEC 2025', desc: 'Led end-to-end social media automation stack using Make.com, Meta Graph API, Gemini, Veo, and conversational pipelines.', status: 'COMPLETED' },
+                  { role: 'AI INTERN', company: 'WellBe Revive 360', year: 'SEP 2025 - NOV 2025', desc: 'Built a nutrition assistant with OpenAI + RAG + Qdrant, SSE streaming, safety guardrails, and TruLens evaluations.', status: 'COMPLETED' },
+                  { role: 'AI INTERN', company: 'Edunet Foundation', year: 'FEB 2025 - APR 2025', desc: 'Developed custom CNN retinal classifier (92.4% accuracy) and deployed diagnosis workflow with Flask + Streamlit.', status: 'COMPLETED' }
                 ].map((exp, idx) => (
                   <ScrollReveal key={idx} direction="left">
                     <div className="pl-10 relative group">
@@ -1912,9 +2200,9 @@ const CareerPage: React.FC = () => {
               
               <div className="space-y-10 relative before:absolute before:left-0 before:top-0 before:w-px before:h-full before:bg-val-border">
                 {[
-                  { degree: 'B.E. IN AI & ML', institution: 'ISBM College of Engineering', year: '2022 - 2026', desc: 'Specializing in deep learning, computer vision, and scalable AI architectures.', status: 'ACTIVE' },
-                  { degree: 'HSC (SCIENCE)', institution: 'Vidyaniketan College', year: '2020 - 2021', desc: 'Focused on advanced mathematics and physics.', status: 'COMPLETED' },
-                  { degree: 'CBSE (10TH)', institution: 'VPM\'s B.R. Tol School', year: '2018 - 2019', desc: 'Foundational studies with distinction.', status: 'COMPLETED' }
+                  { degree: 'B.E. IN AI & ML', institution: 'ISBM College of Engineering (SPPU)', year: '2022 - 2026', desc: `CGPA: ${LIVE_PROFILE.education.cgpa} | Current SGPA (TE): ${LIVE_PROFILE.education.sgpa}. Focused on deep learning, vision, NLP, and deployment systems.`, status: 'ACTIVE' },
+                  { degree: 'HSC (SCIENCE)', institution: 'Vidyaniketan College, Mumbai', year: '2021', desc: 'Higher Secondary Certificate: 79.33%.', status: 'COMPLETED' },
+                  { degree: 'CBSE (10TH)', institution: 'VPM\'s B.R. Tol School, Mumbai', year: '2019', desc: 'CBSE Score: 73.83%.', status: 'COMPLETED' }
                 ].map((edu, idx) => (
                   <ScrollReveal key={idx} direction="left">
                     <div className="pl-10 relative group">
@@ -1953,9 +2241,9 @@ const CareerPage: React.FC = () => {
               <div className="grid grid-cols-1 gap-4">
                 {[
                   { label: 'Languages', items: ['Python', 'Java', 'C/C++', 'SQL', 'JavaScript'] },
-                  { label: 'Frameworks', items: ['FastAPI', 'Flask', 'Django', 'TensorFlow', 'PyTorch', 'Scikit-Learn'] },
-                  { label: 'Infrastructure', items: ['Docker', 'PostgreSQL', 'MongoDB', 'Redis', 'GCP', 'Git'] },
-                  { label: 'AI Tools', items: ['Make.com', 'Meta Graph API', 'Google Gemini', 'Google Veo', 'TruLens'] }
+                  { label: 'Frameworks', items: ['FastAPI', 'Flask', 'Django', 'TensorFlow', 'PyTorch', 'Scikit-Learn', 'Keras'] },
+                  { label: 'Infrastructure', items: ['Docker', 'PostgreSQL', 'MongoDB', 'Qdrant', 'GCP', 'Git', 'CI/CD'] },
+                  { label: 'AI Tools', items: ['Make.com', 'Meta Graph API', 'Google Gemini', 'Google Veo', 'TruLens', 'OpenAI API'] }
                 ].map((group, idx) => (
                   <div key={idx} className="glass-panel p-6 group hover:border-val-red/50 transition-colors">
                     <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] mb-4">{group.label}</div>
@@ -1979,61 +2267,243 @@ const CareerPage: React.FC = () => {
 
 const SystemsCorePage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const graphRef = useRef<any>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [hoverNode, setHoverNode] = useState<any>(null);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [showProjects, setShowProjects] = useState(true);
+  const [highlightNodeIds, setHighlightNodeIds] = useState<Set<string>>(new Set());
+  const [highlightLinkKeys, setHighlightLinkKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (containerRef.current) {
+    const syncSize = () => {
+      if (!containerRef.current) return;
       setDimensions({
         width: containerRef.current.clientWidth,
         height: containerRef.current.clientHeight
       });
-    }
+    };
+
+    syncSize();
+    window.addEventListener('resize', syncSize);
+    return () => window.removeEventListener('resize', syncSize);
   }, []);
 
-  const graphData = useMemo(() => {
-    const nodes: any[] = [{ id: 'RUSHIL_AI_CORE', group: 0, val: 50 }];
+  const simulationData = useMemo(() => {
+    const nodes: any[] = [{ id: 'RUSHIL_AI_CORE', label: 'RUSHIL CORE', group: 0, val: 58, tier: 'root' }];
     const links: any[] = [];
-    
-    // Create categories with boosted importance for ML, Backend, and Automation
-    const categories = [
-      { id: 'Deep_Learning', group: 1, val: 45 },
-      { id: 'Systems_Backend', group: 2, val: 45 },
-      { id: 'Automation', group: 3, val: 45 },
-      { id: 'Data_Prep_Misc', group: 4, val: 25 }
+    const skillProjectMap: Record<string, string[]> = {};
+
+    const makeLinkKey = (sourceId: string, targetId: string) => `${sourceId}=>${targetId}`;
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const aliases: Record<string, string[]> = {
+      'Vision Transformers (ViT)': ['vit-b/16', 'vit'],
+      'LLMs': ['llm', 'openai api'],
+      'REST APIs': ['fastapi', 'django', 'flask'],
+      'STT/TTS': ['stt/tts', 'stt', 'tts', 'telephony'],
+      'GCP': ['google cloud platform', 'gcp']
+    };
+
+    const addNodeIfMissing = (node: any) => {
+      if (!nodes.some((n) => n.id === node.id)) nodes.push(node);
+    };
+
+    const addLink = (source: string, target: string) => {
+      if (!links.some((l) => l.source === source && l.target === target)) {
+        links.push({ source, target, key: makeLinkKey(source, target) });
+      }
+    };
+
+    const coreBranches = [
+      {
+        id: 'ML_DL_Core',
+        label: 'ML / DL Core',
+        group: 1,
+        skills: ['PyTorch', 'TensorFlow', 'Scikit-Learn', 'Keras', 'Feature Engineering']
+      },
+      {
+        id: 'Vision_Healthcare',
+        label: 'Vision Healthcare',
+        group: 2,
+        skills: ['Vision Transformers (ViT)', 'CNNs', 'OpenCV', 'Medical Image Processing', 'Image Segmentation']
+      },
+      {
+        id: 'NLP_RAG',
+        label: 'NLP / RAG',
+        group: 3,
+        skills: ['LLMs', 'RAG', 'BERT', 'Qdrant', 'TruLens']
+      },
+      {
+        id: 'Backend_APIs',
+        label: 'Backend APIs',
+        group: 4,
+        skills: ['FastAPI', 'Django', 'Flask', 'REST APIs', 'OAuth2/JWT']
+      },
+      {
+        id: 'Automation_Agents',
+        label: 'Automation Agents',
+        group: 5,
+        skills: ['Make.com', 'Meta Graph API', 'Google Gemini', 'Google Veo', 'STT/TTS']
+      },
+      {
+        id: 'Infra_DevOps',
+        label: 'Infra DevOps',
+        group: 6,
+        skills: ['Docker', 'MongoDB', 'PostgreSQL', 'GCP', 'Git']
+      }
     ];
-    
-    nodes.push(...categories);
-    categories.forEach(c => {
-      links.push({ source: 'RUSHIL_AI_CORE', target: c.id });
-    });
 
-    const addedSkills = new Set();
-    
-    PROJECTS.forEach(p => {
-      p.tech.concat(p.tools).forEach(tech => {
-        if (!addedSkills.has(tech)) {
-          addedSkills.add(tech);
-          
-          let targetGroup = 4;
-          let parent = 'Data_Science';
-          
-          if (['FastAPI', 'Django', 'MongoDB', 'PostgreSQL', 'Docker', 'Redis', 'Flask', 'GCP'].includes(tech)) {
-            targetGroup = 2; parent = 'Systems_Backend';
-          } else if (['Make.com', 'Twilio API', 'Twilio', 'SMTP', 'Chrome Extension API', 'Google Gemini', 'Google Veo'].includes(tech)) {
-            targetGroup = 3; parent = 'Automation';
-          } else if (['PyTorch', 'TensorFlow', 'CNNs', 'ResNet-50', 'ViT-B/16', 'LSTM', 'Spectrogram'].includes(tech)) {
-            targetGroup = 1; parent = 'Deep_Learning';
-          }
+    coreBranches.forEach((branch) => {
+      addNodeIfMissing({ id: branch.id, label: branch.label, group: branch.group, val: 34, tier: 'branch' });
+      addLink('RUSHIL_AI_CORE', branch.id);
 
-          nodes.push({ id: tech, group: targetGroup, val: 15 });
-          links.push({ source: parent, target: tech });
+      branch.skills.forEach((skill) => {
+        addNodeIfMissing({ id: skill, label: skill, group: branch.group, val: 15, tier: 'skill' });
+        addLink(branch.id, skill);
+
+        const skillTokens = [normalize(skill), ...(aliases[skill] || []).map(normalize)];
+        const matchedProjects = PROJECTS.filter((project) => {
+          const projectTokens = project.tech.concat(project.tools).map(normalize);
+          return skillTokens.some((token) => projectTokens.some((projectToken) => projectToken.includes(token) || token.includes(projectToken)));
+        });
+
+        skillProjectMap[skill] = matchedProjects.map((project) => project.title);
+
+        if (showProjects) {
+          matchedProjects.forEach((project) => {
+            const projectId = `PROJECT_${project.id}`;
+            addNodeIfMissing({ id: projectId, label: project.title, group: 7, val: 13, tier: 'project' });
+            addLink(skill, projectId);
+          });
         }
       });
     });
 
-    return { nodes, links };
-  }, []);
+    const adjacency = new Map<string, Set<string>>();
+    links.forEach((link) => {
+      const sourceId = String(link.source);
+      const targetId = String(link.target);
+      if (!adjacency.has(sourceId)) adjacency.set(sourceId, new Set());
+      if (!adjacency.has(targetId)) adjacency.set(targetId, new Set());
+      adjacency.get(sourceId)!.add(targetId);
+      adjacency.get(targetId)!.add(sourceId);
+    });
+
+    return {
+      graphData: { nodes, links },
+      adjacency,
+      skillProjectMap
+    };
+  }, [showProjects]);
+
+  useEffect(() => {
+    if (!graphRef.current) return;
+    graphRef.current.d3Force('charge')?.strength(-220);
+    graphRef.current.d3Force('link')?.distance((link: any) => {
+      const sourceTier = (link.source as any)?.tier || '';
+      if (sourceTier === 'root') return 140;
+      if (sourceTier === 'branch') return 100;
+      return 70;
+    });
+    graphRef.current.d3ReheatSimulation();
+  }, [simulationData.graphData]);
+
+  const getNodeId = (node: any) => (typeof node === 'object' ? node.id : node);
+  const makeLinkKey = (sourceId: string, targetId: string) => `${sourceId}=>${targetId}`;
+
+  const clearHighlights = () => {
+    setHighlightNodeIds(new Set());
+    setHighlightLinkKeys(new Set());
+  };
+
+  const focusNodeNeighborhood = (node: any) => {
+    if (!node) {
+      clearHighlights();
+      return;
+    }
+
+    const sourceId = node.id;
+    const neighbors = simulationData.adjacency.get(sourceId) || new Set<string>();
+    const nextNodes = new Set<string>([sourceId, ...neighbors]);
+    const nextLinks = new Set<string>();
+
+    simulationData.graphData.links.forEach((link: any) => {
+      const a = String(getNodeId(link.source));
+      const b = String(getNodeId(link.target));
+      if (a === sourceId || b === sourceId) nextLinks.add(makeLinkKey(a, b));
+    });
+
+    setHighlightNodeIds(nextNodes);
+    setHighlightLinkKeys(nextLinks);
+  };
+
+  const getNodeColor = (group: number) => {
+    if (group === 0) return '#ff4655';
+    if (group === 1) return '#00e5ff';
+    if (group === 2) return '#4dd0e1';
+    if (group === 3) return '#7c4dff';
+    if (group === 4) return '#ffc107';
+    if (group === 5) return '#66bb6a';
+    if (group === 6) return '#ff8a65';
+    if (group === 7) return '#f8fafc';
+    return '#f8fafc';
+  };
+
+  const withAlpha = (hexColor: string, alpha: number) => {
+    const hex = hexColor.replace('#', '');
+    const fullHex = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+    const r = parseInt(fullHex.substring(0, 2), 16);
+    const g = parseInt(fullHex.substring(2, 4), 16);
+    const b = parseInt(fullHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const formatNodeLabel = (label: string) =>
+    label
+      .replace(/^PROJECT_[A-Za-z0-9()_\-]+_/, '')
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const compactNodeLabel = (rawLabel: string) => {
+    const map: Record<string, string> = {
+      'Vision Transformers (ViT)': 'ViT',
+      'Hugging Face Transformers': 'HF Xformers',
+      'SQLAlchemy (async)': 'SQLA async',
+      'Google Cloud Platform': 'GCP',
+      'Medical Image Processing': 'Medical Imaging',
+      'Meta Graph API': 'Meta API',
+      'Feature Engineering': 'Feature Eng'
+    };
+
+    if (map[rawLabel]) return map[rawLabel];
+    if (rawLabel.length <= 18) return rawLabel;
+
+    const words = rawLabel.split(' ');
+    if (words.length >= 3) return `${words[0]} ${words[1]}`;
+    return `${rawLabel.slice(0, 16)}..`;
+  };
+
+  const splitLabelLines = (label: string, maxCharsPerLine: number, maxLines = 2) => {
+    const words = label.split(' ');
+    const lines: string[] = [];
+    let current = '';
+
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length <= maxCharsPerLine) {
+        current = next;
+      } else {
+        if (current) lines.push(current);
+        current = word;
+      }
+      if (lines.length >= maxLines) break;
+    }
+
+    if (lines.length < maxLines && current) lines.push(current);
+    return lines.slice(0, maxLines);
+  };
 
   return (
     <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full flex flex-col items-center">
@@ -2048,13 +2518,19 @@ const SystemsCorePage: React.FC = () => {
             NEURAL_LOADOUT
           </h1>
           <p className="text-val-light/40 font-mono text-xs uppercase tracking-[0.3em] max-w-xl">
-            Interactive topological map of system-wide skills and technical specializations.
-            Drag core modules to analyze neural links.
+            Fully interactive circular simulation. Click nodes to focus paths, drag to rewire space, scroll to zoom.
+            Skills can reveal direct project associations in real time.
           </p>
         </div>
       </div>
 
-      <div ref={containerRef} className="w-full max-w-7xl h-[60vh] md:h-[700px] glass-panel border border-val-border relative overflow-hidden group">
+      <div
+        ref={containerRef}
+        data-lenis-prevent
+        onWheelCapture={(e) => e.stopPropagation()}
+        onTouchMoveCapture={(e) => e.stopPropagation()}
+        className="w-full max-w-7xl h-[60vh] md:h-[700px] glass-panel border border-val-border relative overflow-hidden group touch-none"
+      >
         <div className="absolute top-0 right-0 p-8 font-mono text-[10px] text-val-light/20 tracking-[0.5em] flex flex-col items-end gap-2 z-10 pointer-events-none">
           <span>LIVE_SIMULATION</span>
           <div className="flex gap-1 group-hover:animate-pulse">
@@ -2064,31 +2540,69 @@ const SystemsCorePage: React.FC = () => {
         
         {dimensions.width > 0 && (
           <ForceGraph2D
+            ref={graphRef}
             width={dimensions.width}
             height={dimensions.height}
-            graphData={graphData}
+            graphData={simulationData.graphData}
+            dagMode="radialout"
+            dagLevelDistance={125}
             nodeRelSize={1}
-            nodeColor={(node: any) => node.group === 0 ? '#ff4655' : node.group === 1 ? '#00e5ff' : node.group === 2 ? '#ffc107' : node.group === 3 ? '#b388ff' : '#00e676'}
-            linkColor={() => 'rgba(255, 255, 255, 0.1)'}
+            nodeColor={(node: any) => {
+              const base = getNodeColor(node.group);
+              const hasFocus = highlightNodeIds.size > 0;
+              return hasFocus && !highlightNodeIds.has(node.id) ? withAlpha(base, 0.2) : base;
+            }}
+            linkColor={(link: any) => {
+              const a = String(getNodeId(link.source));
+              const b = String(getNodeId(link.target));
+              const key = makeLinkKey(a, b);
+              const hasFocus = highlightLinkKeys.size > 0;
+              return hasFocus && !highlightLinkKeys.has(key)
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(255,255,255,0.38)';
+            }}
             nodeLabel="id"
-            onNodeHover={setHoverNode}
+            onNodeHover={(node: any) => {
+              setHoverNode(node || null);
+              if (!selectedNode) focusNodeNeighborhood(node || null);
+            }}
+            onNodeClick={(node: any) => {
+              setSelectedNode(node);
+              focusNodeNeighborhood(node);
+              if (graphRef.current && typeof node?.x === 'number' && typeof node?.y === 'number') {
+                graphRef.current.centerAt(node.x, node.y, 700);
+                graphRef.current.zoom(node.tier === 'root' ? 2 : 2.7, 700);
+              }
+            }}
+            onBackgroundClick={() => {
+              setSelectedNode(null);
+              setHoverNode(null);
+              clearHighlights();
+            }}
+            d3VelocityDecay={0.42}
+            d3AlphaDecay={0.05}
+            linkWidth={(link: any) => {
+              const a = String(getNodeId(link.source));
+              const b = String(getNodeId(link.target));
+              const key = makeLinkKey(a, b);
+              return highlightLinkKeys.has(key) ? 2.6 : 1.2;
+            }}
             nodeCanvasObject={(node: any, ctx, globalScale) => {
-              const label = node.id;
-              const isHovered = hoverNode === node;
-              const isImportant = node.group < 4; // RUSHIL_AI_CORE or Major Category
-              const radius = node.val / 3.5;
+              const label = compactNodeLabel(formatNodeLabel(node.label || node.id));
+              const isHovered = hoverNode?.id === node.id || selectedNode?.id === node.id;
+              const isDimmed = highlightNodeIds.size > 0 && !highlightNodeIds.has(node.id);
+              const radius = node.tier === 'root' ? 24 : node.tier === 'branch' ? 16 : node.tier === 'project' ? 10 : 12;
 
-              const color = node.group === 0 ? '#ff4655' : node.group === 1 ? '#00e5ff' : node.group === 2 ? '#ffc107' : node.group === 3 ? '#b388ff' : '#00e676';
+              const color = getNodeColor(node.group);
 
-              // Draw Node Circle
               ctx.beginPath();
               ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-              ctx.fillStyle = color;
+              ctx.fillStyle = isDimmed ? withAlpha(color, 0.2) : color;
               
               if (isHovered) {
                 ctx.shadowColor = '#ffffff';
                 ctx.shadowBlur = 15;
-              } else if (isImportant) {
+              } else if (node.group < 4) {
                 ctx.shadowColor = color;
                 ctx.shadowBlur = 8;
               } else {
@@ -2096,36 +2610,103 @@ const SystemsCorePage: React.FC = () => {
               }
               ctx.fill();
 
-              // Draw Label only if hovered or if it's an important category 
-              // (which prevents screen clutter)
-              if (isHovered || isImportant) {
-                const fontSize = isImportant ? 10 : 8;
-                ctx.font = `${fontSize}px Inter, sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'top';
-                ctx.shadowBlur = 0; // Don't blur the text
-                
-                // Text shadow/background for legibility
-                ctx.fillStyle = 'rgba(15, 25, 35, 0.8)';
-                const textWidth = ctx.measureText(label).width;
-                ctx.fillRect(node.x - textWidth / 2 - 2, node.y + radius + 2, textWidth + 4, fontSize + 4);
+              ctx.strokeStyle = 'rgba(15, 25, 35, 0.75)';
+              ctx.lineWidth = isHovered ? 2 : 1;
+              ctx.stroke();
 
-                ctx.fillStyle = isHovered ? '#ffffff' : color;
-                ctx.fillText(label, node.x, node.y + radius + 4);
-              }
+              const maxChars = Math.max(7, Math.floor(radius * 0.95));
+              const lines = splitLabelLines(label, maxChars, node.tier === 'root' || node.tier === 'branch' ? 2 : 1);
+              const fontSize = node.tier === 'root' ? 9 : node.tier === 'branch' ? 8 : 7;
+              const lineHeight = fontSize + 1;
+              const totalHeight = lines.length * lineHeight;
+
+              ctx.shadowBlur = 0;
+              ctx.font = `600 ${fontSize}px Inter, sans-serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = isDimmed ? 'rgba(15, 25, 35, 0.35)' : isHovered ? '#ffffff' : '#0f1923';
+
+              lines.forEach((line, index) => {
+                const yOffset = -totalHeight / 2 + lineHeight / 2 + index * lineHeight;
+                ctx.fillText(line, node.x, node.y + yOffset);
+              });
               
               // Required for hover hit detection
               node.__bckgDimensions = [radius*2, radius*2];
             }}
+            cooldownTicks={90}
+            enableNodeDrag={true}
+            enablePanInteraction={true}
+            enableZoomInteraction={true}
             nodePointerAreaPaint={(node: any, color, ctx) => {
               ctx.fillStyle = color;
-              const radius = node.val / 3.5;
+              const radius = node.tier === 'root' ? 24 : node.tier === 'branch' ? 16 : node.tier === 'project' ? 10 : 12;
               ctx.beginPath();
-              ctx.arc(node.x, node.y, radius + 4, 0, 2 * Math.PI, false); // generous hover radius
+              ctx.arc(node.x, node.y, radius + 5, 0, 2 * Math.PI, false);
               ctx.fill();
             }}
           />
         )}
+
+        {(hoverNode || selectedNode) && (
+          <div className="absolute top-4 left-4 z-20 w-[320px] glass-panel border border-val-red/30 p-4">
+            <div className="text-[10px] font-mono text-val-red uppercase tracking-[0.35em] mb-3">INTERACTIVE_NODE_PANEL</div>
+            <div className="text-sm font-display font-black text-white italic mb-1">{formatNodeLabel((selectedNode || hoverNode).label || (selectedNode || hoverNode).id)}</div>
+            <div className="text-[10px] font-mono text-val-light/40 uppercase tracking-[0.25em] mb-3">Tier: {(selectedNode || hoverNode).tier}</div>
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {(selectedNode || hoverNode).tier === 'skill' && (simulationData.skillProjectMap[(selectedNode || hoverNode).id] || []).length > 0 ? (
+                simulationData.skillProjectMap[(selectedNode || hoverNode).id].map((projectName) => (
+                  <div key={projectName} className="text-[11px] font-mono text-val-light/80 border-l-2 border-val-red/40 pl-2">
+                    {projectName}
+                  </div>
+                ))
+              ) : (
+                <div className="text-[11px] font-mono text-val-light/50">Select a skill node to view associated projects.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+          <button
+            onClick={() => {
+              setShowProjects((prev) => !prev);
+              setSelectedNode(null);
+              setHoverNode(null);
+              clearHighlights();
+            }}
+            className="px-3 py-2 text-[10px] font-mono tracking-[0.2em] uppercase glass-panel border border-val-border hover:border-val-red transition-colors"
+          >
+            {showProjects ? 'HIDE_PROJECT_NODES' : 'SHOW_PROJECT_NODES'}
+          </button>
+          <button
+            onClick={() => {
+              if (!graphRef.current) return;
+              graphRef.current.zoomToFit(700, 70);
+              setSelectedNode(null);
+              setHoverNode(null);
+              clearHighlights();
+            }}
+            className="px-3 py-2 text-[10px] font-mono tracking-[0.2em] uppercase glass-panel border border-val-border hover:border-val-red transition-colors"
+          >
+            RESET_VIEW
+          </button>
+        </div>
+
+        <div className="absolute bottom-4 left-4 right-4 z-10 pointer-events-none">
+          <div className="inline-flex flex-wrap gap-2 bg-val-dark/80 border border-val-border px-3 py-2">
+            <span className="text-[10px] font-mono text-val-light/70 uppercase tracking-widest">Legend:</span>
+            <span className="text-[10px] font-mono text-[#ff4655] uppercase">Core</span>
+            <span className="text-[10px] font-mono text-[#00e5ff] uppercase">ML/DL</span>
+            <span className="text-[10px] font-mono text-[#4dd0e1] uppercase">Vision</span>
+            <span className="text-[10px] font-mono text-[#7c4dff] uppercase">NLP/RAG</span>
+            <span className="text-[10px] font-mono text-[#ffc107] uppercase">Backend</span>
+            <span className="text-[10px] font-mono text-[#66bb6a] uppercase">Automation</span>
+            <span className="text-[10px] font-mono text-[#ff8a65] uppercase">DevOps</span>
+            <span className="text-[10px] font-mono text-[#f8fafc] uppercase">Projects</span>
+            <span className="text-[10px] font-mono text-val-light/70 uppercase">Click to focus paths</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -2251,7 +2832,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-val-dark text-val-light selection:bg-val-red selection:text-white relative font-sans overflow-x-hidden">
       <CustomCursor />
-      <TerminalOverlay />
       <SmoothScroll>
         <AnimatePresence mode="wait">
           {appState === 'standby' && (
