@@ -2804,6 +2804,7 @@ const SystemsCorePage: React.FC = () => {
   const prefersReducedMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<any>(null);
+  const isContainerInView = useInView(containerRef, { amount: 0.3 });
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [hoverNode, setHoverNode] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -2825,7 +2826,15 @@ const SystemsCorePage: React.FC = () => {
 
     syncSize();
     window.addEventListener('resize', syncSize);
-    return () => window.removeEventListener('resize', syncSize);
+
+    // Re-measure when the panel becomes visible or its layout changes.
+    const observer = new ResizeObserver(() => syncSize());
+    if (containerRef.current) observer.observe(containerRef.current);
+
+    return () => {
+      window.removeEventListener('resize', syncSize);
+      observer.disconnect();
+    };
   }, []);
 
   const simulationData = useMemo(() => {
@@ -2947,6 +2956,12 @@ const SystemsCorePage: React.FC = () => {
     });
     graphRef.current.d3ReheatSimulation();
   }, [simulationData.graphData]);
+
+  useEffect(() => {
+    if (!graphRef.current || !isContainerInView) return;
+    graphRef.current.d3ReheatSimulation?.();
+    graphRef.current.zoomToFit?.(prefersReducedMotion ? 0 : 450, 70);
+  }, [isContainerInView, dimensions.width, dimensions.height, prefersReducedMotion]);
 
   useEffect(() => {
     if (!graphRef.current) return;
