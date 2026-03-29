@@ -1984,6 +1984,15 @@ const AgentsPage: React.FC = () => {
 
   const [expandedAgent, setExpandedAgent] = useState('core');
   const [detailedAgent, setDetailedAgent] = useState<typeof agents[0] | null>(null);
+  const [mountingAgentId, setMountingAgentId] = useState<string | null>(null);
+
+  const handleAgentOpen = (agent: typeof agents[0]) => {
+    setMountingAgentId(agent.id);
+    window.setTimeout(() => {
+      setDetailedAgent(agent);
+      setMountingAgentId(null);
+    }, 650);
+  };
 
   // Lock scroll when modal is open
   useEffect(() => {
@@ -2018,7 +2027,7 @@ const AgentsPage: React.FC = () => {
               <motion.div
                 layoutId={`agent-panel-${agent.id}`}
                 key={agent.id}
-                onClick={() => setDetailedAgent(agent)}
+                onClick={() => handleAgentOpen(agent)}
                 onMouseEnter={() => setExpandedAgent(agent.id)}
                 initial={false}
                 animate={{ 
@@ -2120,16 +2129,48 @@ const AgentsPage: React.FC = () => {
         </div>
       </div>
 
-      <AnimatePresence>
-        {detailedAgent && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            data-lenis-prevent
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12 lg:p-24 overflow-y-auto bg-val-dark/95 backdrop-blur-3xl"
-            onClick={() => setDetailedAgent(null)}
-          >
+      {createPortal(
+        <AnimatePresence>
+          {mountingAgentId && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[225] bg-val-dark/90 backdrop-blur-md flex flex-col items-center justify-center"
+            >
+              <div className="space-y-8 text-center">
+                <div className="relative">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1.6, ease: "linear" }}
+                    className="w-28 h-28 border-4 border-val-red/20 border-t-val-red rounded-full"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Cpu className="text-val-red animate-pulse" size={34} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-val-red font-display font-black text-2xl tracking-[0.45em] uppercase italic">MOUNTING_AGENT</h2>
+                  <p className="text-val-light/40 font-mono text-xs uppercase tracking-widest">Initializing operational profile...</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {createPortal(
+        <AnimatePresence>
+          {detailedAgent && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              data-lenis-prevent
+              className="fixed inset-0 z-[210] flex items-center justify-center p-6 md:p-12 lg:p-24 overflow-y-auto bg-val-dark/95 backdrop-blur-3xl"
+              onClick={() => setDetailedAgent(null)}
+            >
             <motion.div
               layoutId={`agent-panel-${detailedAgent.id}`}
               onClick={(e) => e.stopPropagation()}
@@ -2283,9 +2324,11 @@ const AgentsPage: React.FC = () => {
                 </div>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };
@@ -2438,40 +2481,43 @@ const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onS
 
   return (
     <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 relative w-full">
-      <AnimatePresence>
-        {isDeploying && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-val-dark/90 backdrop-blur-md flex flex-col items-center justify-center"
-          >
-            <div className="space-y-8 text-center">
-              <div className="relative">
-                <motion.div 
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                  className="w-32 h-32 border-4 border-val-red/20 border-t-val-red rounded-full"
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Activity className="text-val-red animate-pulse" size={40} />
+      {createPortal(
+        <AnimatePresence>
+          {isDeploying && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[220] bg-val-dark/90 backdrop-blur-md flex flex-col items-center justify-center"
+            >
+              <div className="space-y-8 text-center">
+                <div className="relative">
+                  <motion.div 
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                    className="w-32 h-32 border-4 border-val-red/20 border-t-val-red rounded-full"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Activity className="text-val-red animate-pulse" size={40} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-val-red font-display font-black text-2xl tracking-[0.5em] uppercase italic">DEPLOYING_ASSETS</h2>
+                  <p className="text-val-light/40 font-mono text-xs uppercase tracking-widest">Establishing secure uplink to mission data...</p>
                 </div>
               </div>
-              <div className="space-y-2">
-                <h2 className="text-val-red font-display font-black text-2xl tracking-[0.5em] uppercase italic">DEPLOYING_ASSETS</h2>
-                <p className="text-val-light/40 font-mono text-xs uppercase tracking-widest">Establishing secure uplink to mission data...</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="w-2 h-8 bg-val-red"></div>
-              <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">MISSION_LOGS</h2>
+            zIndex: 80,
             </div>
             <h1 className="text-7xl font-display font-black tracking-tighter italic leading-none text-white whitespace-pre-wrap">ACTIVE_OPERATIONS</h1>
           </div>
@@ -3817,7 +3863,7 @@ export default function App() {
                       initial={{ opacity: 0, y: 50 }}
                       animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }}
                       exit={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
-                      className="min-h-screen bg-val-dark z-50 relative"
+                      className="min-h-screen bg-val-dark z-[160] relative"
                     >
                       <MissionDetailPage project={selectedProject} onBack={handleBackToMissions} />
                     </motion.div>
