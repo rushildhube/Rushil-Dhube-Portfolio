@@ -4,7 +4,8 @@
  */
 
 import React, { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValueEvent, useInView, useDragControls, useReducedMotion } from 'motion/react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue, useMotionValueEvent, useInView, useDragControls, useReducedMotion } from 'motion/react';
 import Lenis from 'lenis';
 import { executeTerminalInput, getTerminalBootHistory, getTerminalCompletions } from './terminal/engine';
 import { trackEvent } from './utils/analytics';
@@ -192,6 +193,18 @@ const PROJECTS: Project[] = [
   }
 ];
 
+const PROFILE_POSITIONING = {
+  roleTarget: 'AI/ML Engineer (GenAI, Backend Systems, Production APIs)',
+  worktype: 'Any - Full-time / Internship / Contract',
+  availability: 'Currently Intern at Ethosh (Dec 2025–Present) — Open for better opportunity',
+  iSolve: 'I build end-to-end AI systems that ship: healthcare diagnostics, production APIs, RAG pipelines, and agentic automation workflows.',
+  whyHireMe: [
+    '✓ Shipped 8+ production projects with measurable outcomes (92%+ accuracy, API-first, deploy-ready)',
+    '✓ Full stack: ML modeling (PyTorch/TensorFlow) → backend (FastAPI) → evaluation (TruLens) → deployment (Docker)',
+    '✓ Proven execution: internship-to-engineer rapid learning; strong on healthcare AI, CV, NLP/RAG, automation'
+  ]
+};
+
 const LIVE_PROFILE = {
   role: 'AI & ML Engineer',
   focus: 'Healthcare AI, Computer Vision, NLP, and Automation Systems',
@@ -326,13 +339,13 @@ const LIVE_SIM_TREE: Array<{
 const SmoothScroll: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 2.0,
-      easing: (t) => 1 - Math.pow(1 - t, 5),
+      duration: 1.4,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // expo-out — crisp deceleration
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
-      wheelMultiplier: 0.8,
-      touchMultiplier: 1.5,
+      wheelMultiplier: 1.0,
+      touchMultiplier: 1.8,
       infinite: false,
     });
 
@@ -645,6 +658,180 @@ const TextReveal: React.FC<{ text: string, className?: string }> = ({ text, clas
   );
 };
 
+// ── Horizontal Scroll Gallery ──────────────────────────────────────────────
+// Architecture: a tall <div> (scroll track) provides the scroll distance.
+// A position:fixed overlay becomes visible only while the track is in view,
+// and slides its panels horizontally via a MotionValue spring.
+// This avoids position:sticky entirely (which breaks under motion.div ancestors).
+type HGalleryProps = {
+  children: React.ReactNode[];
+  panelIds?: string[];
+  onPanelChange?: (id: string) => void;
+};
+
+// ── Horizontal Scroll Gallery ──────────────────────────────────────────────
+// Architecture: a tall <div> (scroll track) provides the scroll distance.
+// A position:fixed overlay (Portaled to body) becomes visible only while 
+// the track is in viewport. We use useScroll targeting the track.
+const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds = [], onPanelChange }) => {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const count = children.length;
+
+  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1920));
+  useEffect(() => {
+    const ro = new ResizeObserver(() => setVw(window.innerWidth));
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, []);
+
+  // Use framer-motion's useScroll — it's robust against smooth-scroll libs
+  const { scrollYProgress } = useScroll({
+    target: trackRef,
+    offset: ['start start', 'end end'],
+  });
+
+  // Smooth the horizontal movement
+  const xPx = useTransform(scrollYProgress, [0, 1], [0, -(count - 1) * vw]);
+  const xSpring = useSpring(xPx, { stiffness: 130, damping: 32, mass: 0.35 });
+
+  // Handle visibility and current page state reactively
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useMotionValueEvent(scrollYProgress, 'change', (v: number) => {
+    // Determine visibility based on progress with a small threshold to prevent 
+    // the fixed overlay from covering the site when we're only at the very edge.
+    const inRange = v > 0.001 && v < 0.999;
+    if (inRange !== isVisible) {
+      setIsVisible(inRange);
+      if (overlayRef.current) {
+        overlayRef.current.style.opacity = inRange ? '1' : '0';
+        overlayRef.current.style.visibility = inRange ? 'visible' : 'hidden';
+        overlayRef.current.style.pointerEvents = inRange ? 'auto' : 'none';
+        overlayRef.current.style.display = inRange ? 'block' : 'none';
+      }
+    }
+
+    const idx = Math.round(v * (count - 1));
+    if (idx !== activeIdx) {
+      setActiveIdx(idx);
+      if (panelIds[idx] && onPanelChange) onPanelChange(panelIds[idx]);
+    }
+  });
+
+  const labelOpacity = useTransform(scrollYProgress, [0, 0.04], [0, 1]);
+
+  // Jump to a panel
+  const scrollToPanel = useCallback((idx: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const trackTop = track.getBoundingClientRect().top + window.scrollY;
+    const totalH = track.offsetHeight - window.innerHeight;
+    const fraction = count > 1 ? idx / (count - 1) : 0;
+    window.scrollTo({ top: trackTop + fraction * totalH, behavior: 'smooth' });
+  }, [count]);
+
+  return (
+    <>
+      <div
+        ref={trackRef}
+        id="h-gallery-root"
+        style={{ height: `${count * 100}vh` }}
+        className="relative w-full overflow-hidden"
+        aria-hidden="true"
+      />
+
+      {createPortal(
+        <div
+          ref={overlayRef}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100, // Boost z-index to ensure it beats main content
+            opacity: 0,
+            visibility: 'hidden',
+            display: 'none',
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            background: '#0f1923', // Hardcoded dark background to be same
+          }}
+        >
+          {/* Background grid */}
+          <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03]">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+              backgroundSize: '100px 100px',
+            }} />
+          </div>
+
+          <motion.div
+            style={{ x: xSpring, willChange: 'transform' }}
+            className="flex h-full relative z-10"
+          >
+            {children.map((panel, i) => (
+              <div
+                key={i}
+                style={{ width: `${vw}px`, minWidth: `${vw}px` }}
+                className="h-full flex-shrink-0 overflow-y-auto"
+                data-lenis-prevent
+              >
+                {panel}
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Indicators */}
+          <motion.div
+            style={{ scaleX: scrollYProgress, transformOrigin: 'left' }}
+            className="absolute bottom-0 left-0 h-[2px] w-full bg-val-red/80 origin-left pointer-events-none z-20"
+          />
+
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30">
+            {children.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => scrollToPanel(i)}
+                className="flex items-center justify-center w-6 h-6 outline-none"
+              >
+                <motion.div
+                  animate={{
+                    scale: i === activeIdx ? 1.6 : 1,
+                    opacity: i === activeIdx ? 1 : 0.3,
+                    backgroundColor: i === activeIdx ? '#ff4655' : 'rgba(255,255,255,0.5)',
+                  }}
+                  className="w-2 h-2 rounded-full"
+                />
+              </button>
+            ))}
+          </div>
+
+          <div className="absolute top-6 right-8 flex items-center gap-3 z-20 pointer-events-none">
+            <motion.span style={{ opacity: labelOpacity }} className="text-[9px] font-mono text-val-light/40 uppercase tracking-[0.4em]">
+              SCROLL_TO_NAVIGATE
+            </motion.span>
+            <div className="w-4 h-4 border border-val-red/30 flex items-center justify-center">
+              <motion.div
+                animate={{ x: [0, 5, 0] }}
+                transition={{ repeat: Infinity, duration: 1.2 }}
+                className="w-1.5 h-1.5 bg-val-red/60"
+              />
+            </div>
+          </div>
+
+          {/* Panel counter */}
+          <div className="absolute bottom-6 right-8 pointer-events-none z-20">
+            <span className="text-[10px] font-mono text-val-light/20 tabular-nums">
+              {String(activeIdx + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
+            </span>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
 const MaskReveal: React.FC<{ children: React.ReactNode, delay?: number, direction?: 'up' | 'down' | 'left' | 'right', className?: string }> = ({ children, delay = 0, direction = 'up', className = "" }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
@@ -708,16 +895,18 @@ const Navbar: React.FC<{ onToggle: () => void, isOpen: boolean, setPage: (p: Pag
       transition={{ duration: 0.35, ease: "easeInOut" }}
       className="fixed top-0 left-0 w-full z-[120] h-20 flex items-center justify-between px-6 md:px-12 pointer-events-none"
     >
-      <div className="flex items-center gap-4 cursor-pointer group pointer-events-auto" onClick={() => { setPage('home'); if(isOpen) onToggle(); }}>
-        <div className="w-10 h-10 bg-val-red flex items-center justify-center rotate-45 transition-transform group-hover:rotate-[135deg]">
-          <svg viewBox="0 0 100 100" className="w-6 h-6 -rotate-45 text-val-dark" fill="currentColor">
-            <path d="M0 100 L40 0 L100 0 L100 20 L50 20 L20 100 Z" />
-            <path d="M100 100 L80 100 L60 60 L80 60 Z" />
-          </svg>
-        </div>
-        <div className="flex flex-col">
-          <span className="font-display font-black text-2xl tracking-tighter leading-none text-white">RUSHIL_DHUBE</span>
-          <span className="text-[10px] font-mono text-val-red tracking-[0.3em] uppercase opacity-60">Radiant // Agent</span>
+      <div className="flex items-center gap-4">
+        <div className="cursor-pointer group pointer-events-auto" onClick={() => { setPage('home'); if(isOpen) onToggle(); }}>
+          <div className="w-10 h-10 bg-val-red flex items-center justify-center rotate-45 transition-transform group-hover:rotate-[135deg]">
+            <svg viewBox="0 0 100 100" className="w-6 h-6 -rotate-45 text-val-dark" fill="currentColor">
+              <path d="M0 100 L40 0 L100 0 L100 20 L50 20 L20 100 Z" />
+              <path d="M100 100 L80 100 L60 60 L80 60 Z" />
+            </svg>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-display font-black text-2xl tracking-tighter leading-none text-white">RUSHIL_DHUBE</span>
+            <span className="text-[10px] font-mono text-val-red tracking-[0.3em] uppercase opacity-60">Radiant // Agent</span>
+          </div>
         </div>
       </div>
       
@@ -1591,10 +1780,26 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
             <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.8, duration: 0.8 }} className="h-px flex-1 bg-val-border origin-right" />
           </div>
 
+          {/* POSITIONING: Role Target + Availability */}
+          <div className="mb-6 space-y-2 text-[13px] font-mono text-val-light/70 uppercase tracking-[0.3em]">
+            <div className="text-val-red font-semibold">{PROFILE_POSITIONING.roleTarget}</div>
+            <div className="text-val-light/60">{PROFILE_POSITIONING.availability}</div>
+            <div className="text-val-light/60">Worktype: {PROFILE_POSITIONING.worktype}</div>
+          </div>
+
           <div className="text-val-light/80 text-lg leading-relaxed mb-10 max-w-lg">
             <TextReveal 
-              text={LIVE_PROFILE.summary}
+              text={PROFILE_POSITIONING.iSolve}
             />
+          </div>
+
+          {/* WHY ME: 3-Point Summary */}
+          <div className="mb-12 space-y-2 border-l-2 border-val-red pl-4">
+            {PROFILE_POSITIONING.whyHireMe.map((point, idx) => (
+              <div key={idx} className="text-sm font-mono text-val-light/80 leading-snug">
+                {point}
+              </div>
+            ))}
           </div>
           
           <div className="flex flex-col sm:flex-row gap-6">
@@ -2449,10 +2654,10 @@ const CareerPage: React.FC = () => {
               
               <div className="space-y-10 relative before:absolute before:left-0 before:top-0 before:w-px before:h-full before:bg-val-border">
                 {[
-                  { role: 'ARTIFICIAL INTELLIGENCE ENGINEER', company: 'Ethosh', year: 'DEC 2025 - PRESENT', desc: 'Building production-oriented AI systems and contributing to end-to-end intelligent product delivery.', status: 'ACTIVE' },
-                  { role: 'AI ENGINEER', company: 'SniperThink', year: 'SEP 2025 - DEC 2025', desc: 'Led end-to-end social media automation stack using Make.com, Meta Graph API, Gemini, Veo, and conversational pipelines.', status: 'COMPLETED' },
-                  { role: 'AI INTERN', company: 'WellBe Revive 360', year: 'SEP 2025 - NOV 2025', desc: 'Built a nutrition assistant with OpenAI + RAG + Qdrant, SSE streaming, safety guardrails, and TruLens evaluations.', status: 'COMPLETED' },
-                  { role: 'AI INTERN', company: 'Edunet Foundation', year: 'FEB 2025 - APR 2025', desc: 'Developed custom CNN retinal classifier (92.4% accuracy) and deployed diagnosis workflow with Flask + Streamlit.', status: 'COMPLETED' }
+                  { role: 'ARTIFICIAL INTELLIGENCE ENGINEER', company: 'Ethosh', year: 'DEC 2025 - PRESENT', bullets: ['Architected production-grade AI pipelines (FastAPI + TensorFlow).', 'Cross-functional delivery: research → backend → evaluation.', 'Tech: Docker, PostgreSQL, CI/CD for AI workloads.'], status: 'ACTIVE' },
+                  { role: 'AI ENGINEER', company: 'SniperThink', year: 'SEP 2025 - DEC 2025', bullets: ['Led 75% reduction in manual content creation via GenAI automation (Make.com + Google Gemini).', 'Orchestrated Meta Graph API workflows for multi-channel campaign deployment.', 'Integrated: Veo, STT/TTS telephony, conversational LLM pipelines (10K+ workflows shipped).'], status: 'COMPLETED' },
+                  { role: 'AI INTERN', company: 'WellBe Revive 360', year: 'SEP 2025 - NOV 2025', bullets: ['Engineered production RAG system: OpenAI + Qdrant + TruLens, 90%+ safety validation.', 'Delivered SSE streaming, safety guardrails (diet constraints, PII masking).', 'Tech stack: FastAPI, PostgreSQL, embeddings, retrieval evaluation.'], status: 'COMPLETED' },
+                  { role: 'AI INTERN', company: 'Edunet Foundation', year: 'FEB 2025 - APR 2025', bullets: ['Built custom CNN retinal classifier: 92.4% accuracy on fundus dataset.', 'Deployed diagnostic Flask + Streamlit app (solo execution, peer review).', 'Tech: TensorFlow, image preprocessing, confusion matrix analysis, hyperparameter tuning.'], status: 'COMPLETED' }
                 ].map((exp, idx) => (
                   <ScrollReveal key={idx} direction="left">
                     <div className="pl-10 relative group">
@@ -2465,7 +2670,9 @@ const CareerPage: React.FC = () => {
                       </div>
                       <h4 className="text-2xl font-display font-black tracking-tighter italic mb-1 uppercase group-hover:text-val-red transition-colors">{exp.role}</h4>
                       <div className="text-sm font-bold text-val-light/60 mb-3">{exp.company}</div>
-                      <p className="text-sm text-val-light/40 max-w-lg leading-relaxed">{exp.desc}</p>
+                      <ul className="text-sm text-val-light/40 max-w-lg space-y-1.5 list-disc list-inside leading-relaxed">
+                        {exp.bullets?.map((bullet, i) => <li key={i}>{bullet}</li>)}
+                      </ul>
                     </div>
                   </ScrollReveal>
                 ))}
@@ -2521,21 +2728,66 @@ const CareerPage: React.FC = () => {
                 <h3 className="text-2xl font-display font-black tracking-tighter italic uppercase">Technical_Loadout</h3>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-6">
                 {[
-                  { label: 'Languages', items: ['Python', 'Java', 'C/C++', 'SQL', 'JavaScript'] },
-                  { label: 'Frameworks', items: ['FastAPI', 'Flask', 'Django', 'TensorFlow', 'PyTorch', 'Scikit-Learn', 'Keras'] },
-                  { label: 'Infrastructure', items: ['Docker', 'PostgreSQL', 'MongoDB', 'Qdrant', 'GCP', 'Git', 'CI/CD'] },
-                  { label: 'AI Tools', items: ['Make.com', 'Meta Graph API', 'Google Gemini', 'Google Veo', 'TruLens', 'OpenAI API'] }
-                ].map((group, idx) => (
-                  <div key={idx} className="glass-panel p-6 group hover:border-val-red/50 transition-colors">
-                    <div className="text-[10px] font-mono text-val-light/30 uppercase tracking-[0.4em] mb-4">{group.label}</div>
-                    <div className="flex flex-wrap gap-3">
-                      {group.items.map((item, i) => (
-                        <span key={i} className="px-3 py-1 bg-val-red/5 border border-val-red/10 text-val-red text-[10px] font-mono font-bold uppercase">
-                          {item}
-                        </span>
-                      ))}
+                  {
+                    domain: 'ML / AI',
+                    expert: ['TensorFlow', 'PyTorch', 'RAG', 'LLMs', 'FastAPI'],
+                    strong: ['Keras', 'Scikit-Learn', 'NLP', 'Feature Engineering', 'Model Evaluation'],
+                    familiar: ['JAX', 'MLflow', 'Qdrant', 'Vector Databases']
+                  },
+                  {
+                    domain: 'Backend / APIs',
+                    expert: ['FastAPI', 'REST APIs', 'PostgreSQL', 'OAuth2/JWT'],
+                    strong: ['Flask', 'Django', 'MongoDB', 'SQLAlchemy', 'Async Python'],
+                    familiar: ['GraphQL', 'gRPC', 'Microservices']
+                  },
+                  {
+                    domain: 'Automation / Agents',
+                    expert: ['Make.com', 'Google Gemini', 'Meta Graph API', 'Workflow Orchestration'],
+                    strong: ['Google Veo', 'STT/TTS', 'Telephony APIs', 'Agent Design'],
+                    familiar: ['Tool Orchestration', 'Multi-Agent Systems']
+                  },
+                  {
+                    domain: 'DevOps / Infrastructure',
+                    expert: ['Docker', 'Git', 'CI/CD', 'Linux'],
+                    strong: ['GCP', 'GitHub Actions', 'Deployment', 'Monitoring'],
+                    familiar: ['Kubernetes', 'Terraform', 'AWS']
+                  }
+                ].map((domain, idx) => (
+                  <div key={idx} className="glass-panel p-6 space-y-4">
+                    <div className="text-sm font-mono text-val-red uppercase font-bold tracking-[0.3em]">{domain.domain}</div>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-[8px] font-mono text-val-light/40 uppercase mb-2">EXPERT</div>
+                        <div className="flex flex-wrap gap-2">
+                          {domain.expert.map((item, i) => (
+                            <span key={i} className="px-2 py-1 bg-val-red/20 border border-val-red/50 text-val-red text-[9px] font-mono font-bold uppercase">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[8px] font-mono text-val-light/40 uppercase mb-2">STRONG</div>
+                        <div className="flex flex-wrap gap-2">
+                          {domain.strong.map((item, i) => (
+                            <span key={i} className="px-2 py-1 bg-val-red/10 border border-val-red/20 text-val-light/70 text-[9px] font-mono font-bold uppercase">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[8px] font-mono text-val-light/40 uppercase mb-2">FAMILIAR</div>
+                        <div className="flex flex-wrap gap-2">
+                          {domain.familiar.map((item, i) => (
+                            <span key={i} className="px-2 py-1 bg-val-light/5 border border-val-light/10 text-val-light/50 text-[9px] font-mono font-bold uppercase">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -3384,21 +3636,52 @@ export default function App() {
     setCurrentPage('mission-detail');
   };
 
+  // Ids of sections living inside the horizontal gallery
+  const H_PANEL_IDS = ['agents', 'missions', 'core', 'career', 'docs'] as const;
+  const H_PANEL_LIST = [...H_PANEL_IDS];
+
   const executeNav = (p: Page) => {
     if (p === 'mission-detail') return;
 
     trackEvent('navigate_section', { page: p });
 
-    if (selectedProject) {
-      setSelectedProject(null);
+    if (selectedProject) setSelectedProject(null);
+
+    const lenis = (window as any).lenis;
+    
+    const panelIdx = H_PANEL_LIST.indexOf(p as any);
+
+    if (panelIdx !== -1) {
+      // Section is inside the horizontal gallery — use Lenis to scroll to the target position
+      setTimeout(() => {
+        const gallery = document.getElementById('h-gallery-root');
+        const el = document.getElementById(p);
+        if (!gallery || !el) return;
+        
+        // Scroll to the gallery first, then let the horizontal scroll take over
+        const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
+        if (lenis) {
+          lenis.scrollTo(galleryTop, { duration: 1.2 });
+        } else {
+          window.scrollTo({ top: galleryTop, behavior: 'smooth' });
+        }
+      }, 50);
+    } else {
+      // Normal vertical section — scroll to section top
+      setTimeout(() => {
+        const el = document.getElementById(p);
+        if (!el) return;
+        
+        const targetY = el.getBoundingClientRect().top + window.scrollY;
+        if (lenis) {
+          lenis.scrollTo(targetY, { duration: 1.2 });
+        } else {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 50);
     }
-    
-    setTimeout(() => {
-      const el = document.getElementById(p);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-    
-    setCurrentPage(p); 
+
+    setCurrentPage(p);
   };
 
   const handleBackToMissions = () => {
@@ -3415,7 +3698,7 @@ export default function App() {
   }, [appState, currentPage, selectedProject]);
 
   return (
-    <div className="min-h-screen bg-val-dark text-val-light selection:bg-val-red selection:text-white relative font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-val-dark text-val-light selection:bg-val-red selection:text-white relative font-sans" style={{ overflowX: 'clip' }}>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-[100000] focus:left-4 focus:top-4 focus:bg-val-red focus:text-white focus:px-3 focus:py-2"
@@ -3472,30 +3755,24 @@ export default function App() {
                       exit={{ opacity: 0 }}
                       className="flex flex-col w-full"
                     >
+                      {/* ── ZONE 1: Normal vertical scroll ── */}
                       <section id="home"><HomePage setPage={executeNav} /></section>
-                      
-                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
-                      
-                      <section id="agents"><AgentsPage /></section>
-                      
-                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
-                      
-                      <section id="missions"><MissionsPage onSelectProject={handleSelectProject} /></section>
-                      
-                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
-                      
-                      <section id="core"><SystemsCorePage /></section>
-                      
-                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
-                      
-                      <section id="career"><CareerPage /></section>
-                      
-                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
-                      
-                      <section id="docs"><DocsPage /></section>
-                      
-                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
-                      
+
+                      {/* ── ZONE 2: Horizontal scroll gallery (pinned) ── */}
+                      <HorizontalScrollGallery
+                        panelIds={['agents', 'missions', 'core', 'career', 'docs']}
+                        onPanelChange={(id) => setCurrentPage(id as Page)}
+                      >
+                        {[
+                          <section id="agents" key="agents"><AgentsPage /></section>,
+                          <section id="missions" key="missions"><MissionsPage onSelectProject={handleSelectProject} /></section>,
+                          <section id="core" key="core"><SystemsCorePage /></section>,
+                          <section id="career" key="career"><CareerPage /></section>,
+                          <section id="docs" key="docs"><DocsPage /></section>,
+                        ]}
+                      </HorizontalScrollGallery>
+
+                      {/* ── ZONE 3: Normal vertical scroll ── */}
                       <section id="contact"><ContactPage /></section>
                     </motion.div>
                   )}

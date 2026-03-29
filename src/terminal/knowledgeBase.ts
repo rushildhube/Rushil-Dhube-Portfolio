@@ -144,7 +144,40 @@ export const TERMINAL_FILES: TerminalFile[] = [
       '[Profile Shortcuts] whoami, skills, projects, experience, education, certs, achievements, stack, internships',
       '[Knowledge Files] cat <filename> (e.g. cat skills.md, cat projects.md)',
       '[Chat Mode] ask <question> OR ask directly in natural language',
+      '[Recruiter Q&A] recruiter | recruiter-quickstart | show top-projects | why-hire-me | impact | help recruiter',
       '[Session] clear, exit'
+    ]
+  },
+  {
+    name: 'recruiter-guide.md',
+    description: 'Fast-path guide for talent/HR professionals',
+    content: [
+      '60-SECOND SCAN:',
+      '',
+      'Role: Artificial Intelligence Engineer (GenAI backend systems)',
+      'Status: Actively open for better opportunities',
+      'Location: Pune, Ind | Work Arrangement: Any',
+      '',
+      'CORE OFFER:',
+      '  → Full-lifecycle AI shipping: models → APIs → production deployment',
+      '  → Healthcare AI domain: 4 projects (92%+ accuracy)',
+      '  → Modern stack: PyTorch, FastAPI, RAG, Gemini, Make.com',
+      '',
+      'RECENT IMPACT:',
+      '  → 75% automation reduction in content workflows (SniperThink)',
+      '  → 90%+ safety validation on production RAG system (WellBe 3mo solo)',
+      '  → State hackathon + intra-college hackathon winner',
+      '',
+      'QUICK LINKS:',
+      '  Email: rushildhube1305@gmail.com',
+      '  GitHub: github.com/rushildhube',
+      '  LinkedIn: linkedin.com/in/rushildhube',
+      '',
+      'Terminal shortcuts:',
+      '  run `recruiter` for 60-sec overview',
+      '  run `show top-projects` for flagship systems',
+      '  run `why-hire-me` for expanded reasoning',
+      '  run `impact` for metrics summary'
     ]
   }
 ];
@@ -286,6 +319,51 @@ export const RULE_BASED_QA: QAPair[] = [
     id: 'default-help',
     patterns: [/help/i, /what can you do/i, /commands/i],
     answer: ['Use help, faq, or cat commands.md for capabilities. For natural language, use ask <question>.']
+  },
+  {
+    id: 'recruiter-pitch',
+    patterns: [/pitch/i, /why hire/i, /why should we hire/i, /why should i hire/i],
+    answer: ['Full-lifecycle AI execution: research → backend systems → deployment. Healthcare domain expertise. GenAI + RAG stack. Proven startup agility. Run `why-hire-me` for details.']
+  },
+  {
+    id: 'roi-value',
+    patterns: [/roi|value prop|business value|why you/i],
+    answer: ['Value: shipped 90%+ accurate diagnostics, 75% workflow automation (revenue impact), production RAG in 3 months solo. Tech breadth limits hiring overhead.']
+  },
+  {
+    id: 'hiring-availability',
+    patterns: [/hire you|hiring|opportunity|looking|recruiting/i],
+    answer: ['Open for better opportunities with GenAI backend focus. WorkType: any. Available to transition immediately from current role.']
+  },
+  {
+    id: 'work-samples',
+    patterns: [/github|portfolio|sample|code|showcase/i],
+    answer: ['GitHub: github.com/rushildhube | Portfolio terminal: navigate Systems Core for visual AI graph. Run `show top-projects` for metrics.']
+  },
+  {
+    id: 'timeline',
+    patterns: [/when can you start|notice period|available when|transition/i],
+    answer: ['Can transition immediately or on mutual notice. Current role at Ethosh (Dec 2025-present) but actively exploring options.']
+  },
+  {
+    id: 'tech-breadth',
+    patterns: [/fullstack|broad skills|generalist|specialist/i],
+    answer: ['Generalist MLE with depth: PyTorch → FastAPI → Docker → Qdrant. Not pigeon-holed to one tool. Can architect + execute.']
+  },
+  {
+    id: 'healthcare-specialization',
+    patterns: [/healthcare fit|medical|diagnosis domain|regulatory/i],
+    answer: ['4 healthcare projects (90%+ accuracy), understands safety guardrails, data handling, edge cases. Domain experience + regulatory mindset.']
+  },
+  {
+    id: 'remote-work',
+    patterns: [/remote|location flexibility|work from home|timezone/i],
+    answer: ['Open to all work arrangements: remote, hybrid, on-site. Based in Pune. Timezone: IST (UTC+5:30).']
+  },
+  {
+    id: 'scale-experience',
+    patterns: [/scale|10k workflows|large datasets|distributed|performance/i],
+    answer: ['Scaled systems: 10K+ workflows (Make.com), 1000+ medical images processed, 90%+ TruLens validation, async FastAPI under load.']
   }
 ];
 

@@ -391,6 +391,128 @@ export const executeTerminalInput = (rawInput: string): TerminalResult => {
     };
   }
 
+  /* Recruiter-focused shortcuts */
+  if (cmd === 'recruiter-quickstart' || cmd === 'recruiter' || cmd === 'help recruiter') {
+    return {
+      lines: [
+        oneLine('RECRUITER QUICKSTART (60-second scan):'),
+        oneLine(''),
+        oneLine('Role: Artificial Intelligence Engineer (GenAI Backend Systems)'),
+        oneLine('Current: Active @ Ethosh (Dec 2025-Present)'),
+        oneLine('Available: Open for better opportunities'),
+        oneLine('WorkType: Any (remote, hybrid, on-site)'),
+        oneLine(''),
+        oneLine('I SOLVE: Production AI pipelines | Healthcare diagnosis systems | Automation at scale'),
+        oneLine(''),
+        oneLine('WHY HIRE:'),
+        oneLine('  1) Full lifecycle AI delivery: research → architecture → deployment → evaluation'),
+        oneLine('  2) 4+ internships + 8+ flagship projects with 90%+ accuracy metrics'),
+        oneLine('  3) Tech breadth: PyTorch/TensorFlow/FastAPI/Make.com/Qdrant/Docker'),
+        oneLine(''),
+        oneLine('Quick Commands:'),
+        oneLine('  show top-projects    - top 3 flagship systems'),
+        oneLine('  why-hire-me           - expanded hiring reasoning'),
+        oneLine('  impact                - project outcomes & metrics'),
+        oneLine('  download-resume       - full CV (GUI button also available)')
+      ],
+      action: { type: 'none' }
+    };
+  }
+
+  if (cmd === 'show top-projects' || cmd === 'top-projects' || cmd === 'flagship') {
+    return {
+      lines: [
+        oneLine('TOP 3 FLAGSHIP SYSTEMS:'),
+        oneLine(''),
+        oneLine('1. Dental Disease Classification (92.28% accuracy)'),
+        oneLine('   • Vision Transformer (ViT) architecture'),
+        oneLine('   • FastAPI serving | Deployed production model'),
+        oneLine('   • Impact: Clinical-grade diagnostic system'),
+        oneLine(''),
+        oneLine('2. Eye Disease Classifier - Fundus Diagnosis (92.4% accuracy)'),
+        oneLine('   • CNN on fundus dataset | Flask + Streamlit app'),
+        oneLine('   • Deployed end-to-end webapp'),
+        oneLine('   • Impact: Real-world diagnostic tool'),
+        oneLine(''),
+        oneLine('3. WellBe Revive 360 - RAG Nutrition Assistant'),
+        oneLine('   • OpenAI + Qdrant retrieval + TruLels evaluation'),
+        oneLine('   • Safety guardrails: diet constraints, PII masking'),
+        oneLine('   • Impact: Production RAG system shipped in 3 months (intern)')
+      ],
+      action: { type: 'none' }
+    };
+  }
+
+  if (cmd === 'why-hire-me' || cmd === 'why hire') {
+    return {
+      lines: [
+        oneLine('WHY HIRE RUSHIL:'),
+        oneLine(''),
+        oneLine('1. FULL-LIFECYCLE AI EXECUTION'),
+        oneLine('   From research (92%+ accuracy models) → backend systems (FastAPI) → deployment (Docker + CI/CD)'),
+        oneLine('   Not just notebook experiments; ships production systems.'),
+        oneLine(''),
+        oneLine('2. HEALTHCARE AI DOMAIN EXPERTISE'),
+        oneLine('   4+ medical imaging projects: CNNs, ViTs, digital fundus diagnosis.'),
+        oneLine('   Safety-minded: guardrails, evaluation, edge case handling.'),
+        oneLine(''),
+        oneLine('3. MODERN AI STACK BREADTH'),
+        oneLine('   PyTorch/TensorFlow, FastAPI/Flask, RAG + Qdrant, LLMs + Gemini/OpenAI,'),
+        oneLine('   Automation with Make.com + Meta Graph API, Docker + GCP.'),
+        oneLine(''),
+        oneLine('4. PROVEN STARTUP AGILITY'),
+        oneLine('   3-month internship at WellBe building prod RAG system solo.'),
+        oneLine('   SniperThink: orchestrated 75% reduction in manual workflows = revenue impact.')
+      ],
+      action: { type: 'none' }
+    };
+  }
+
+  if (cmd === 'impact' || cmd === 'metrics' || cmd === 'outcomes') {
+    return {
+      lines: [
+        oneLine('PROJECT IMPACT & METRICS:'),
+        oneLine(''),
+        oneLine('Healthcare AI:'),
+        oneLine('  • Dental classifier: 92.28% accuracy (real patient data)'),
+        oneLine('  • Retinal disease classifier: 92.4% accuracy (fundus standard)'),
+        oneLine('  • Scale: 1000+ images preprocessed & validated'),
+        oneLine(''),
+        oneLine('Automation & GenAI:'),
+        oneLine('  • 75% reduction in manual content creation (SniperThink)'),
+        oneLine('  • 10,000+ workflows deployed (Make.com + Meta Graph API)'),
+        oneLine('  • Cross-functional delivery: research → backend → eval'),
+        oneLine(''),
+        oneLine('RAG & LLMs:'),
+        oneLine('  • 90%+ safety validation on nutrition assistant (TruLens)'),
+        oneLine('  • Production streaming (SSE) + guardrails shipped in 3 months'),
+        oneLine('  • Qdrant retrieval with prompt engineering'),
+        oneLine(''),
+        oneLine('Educational Impact:'),
+        oneLine('  • State hackathon winner + intra-college winner'),
+        oneLine('  • NPTEL Python Top 5% performer'),
+        oneLine('  • CGPA 7.85 → rising to 9.07 SGPA')
+      ],
+      action: { type: 'none' }
+    };
+  }
+
+  if (cmd === 'download-resume' || cmd === 'download resume' || cmd === 'get resume') {
+    return {
+      lines: [
+        oneLine('Resume Download:'),
+        oneLine('Use the GUI "Download Dossier" button on the home page.'),
+        oneLine('For terminal summary, run:'),
+        oneLine('  cat whoami.md      - professional snapshot'),
+        oneLine('  cat skills.md      - full tech stack'),
+        oneLine('  cat experience.md  - roles timeline'),
+        oneLine('  cat projects.md    - flagship systems'),
+        oneLine('  cat education.md   - degree + certifications')
+      ],
+      action: { type: 'none' }
+    };
+  }
+
   if (looksLikeNaturalLanguage(input)) {
     const answer = getNaturalAnswer(input);
     if (answer) {
@@ -403,7 +525,7 @@ export const executeTerminalInput = (rawInput: string): TerminalResult => {
     return {
       lines: [
         oneLine('I could not map that to a known rule yet.'),
-        oneLine('Try: "what are your core skills?", "where did you intern?", or run `faq`.')
+        oneLine('Try: "what are your core skills?", "where did you intern?", or run `recruiter` for 60-sec overview.')
       ],
       action: { type: 'none' }
     };

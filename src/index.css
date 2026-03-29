@@ -17,10 +17,13 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
-    @apply bg-val-dark text-val-light font-sans antialiased overflow-x-hidden;
+    @apply bg-val-dark text-val-light font-sans antialiased;
+    /* clip — does NOT create a scroll container, so position:sticky works in children */
+    overflow-x: clip;
     background-image: 
       radial-gradient(circle at 50% 50%, rgba(255, 70, 85, 0.05) 0%, transparent 50%),
       linear-gradient(rgba(15, 25, 35, 0.97), rgba(15, 25, 35, 0.97));
