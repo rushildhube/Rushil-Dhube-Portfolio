@@ -676,6 +676,8 @@ type HGalleryProps = {
 const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds = [], onPanelChange }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const panelRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const switchingRef = useRef(false);
   const count = children.length;
 
   const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1920));
@@ -684,53 +686,106 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
     ro.observe(document.documentElement);
     return () => ro.disconnect();
   }, []);
-
-  // Use framer-motion's useScroll — it's robust against smooth-scroll libs
-  const { scrollYProgress } = useScroll({
-    target: trackRef,
-    offset: ['start start', 'end end'],
-  });
-
-  // Smooth the horizontal movement
-  const xPx = useTransform(scrollYProgress, [0, 1], [0, -(count - 1) * vw]);
-  const xSpring = useSpring(xPx, { stiffness: 130, damping: 32, mass: 0.35 });
-
-  // Handle visibility and current page state reactively
   const [activeIdx, setActiveIdx] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
-  useMotionValueEvent(scrollYProgress, 'change', (v: number) => {
-    // Determine visibility based on progress with a small threshold to prevent 
-    // the fixed overlay from covering the site when we're only at the very edge.
-    const inRange = v > 0.001 && v < 0.999;
-    if (inRange !== isVisible) {
-      setIsVisible(inRange);
-      if (overlayRef.current) {
-        overlayRef.current.style.opacity = inRange ? '1' : '0';
-        overlayRef.current.style.visibility = inRange ? 'visible' : 'hidden';
-        overlayRef.current.style.pointerEvents = inRange ? 'auto' : 'none';
-        overlayRef.current.style.display = inRange ? 'block' : 'none';
-      }
-    }
+  const xTarget = useMotionValue(0);
+  const xSpring = useSpring(xTarget, { stiffness: 92, damping: 34, mass: 0.55 });
+  const progress = count > 1 ? activeIdx / (count - 1) : 0;
 
-    const idx = Math.round(v * (count - 1));
-    if (idx !== activeIdx) {
-      setActiveIdx(idx);
-      if (panelIds[idx] && onPanelChange) onPanelChange(panelIds[idx]);
-    }
-  });
+  useEffect(() => {
+    xTarget.set(-activeIdx * vw);
+  }, [activeIdx, vw, xTarget]);
 
-  const labelOpacity = useTransform(scrollYProgress, [0, 0.04], [0, 1]);
+  const applyOverlayVisibility = useCallback((visible: boolean) => {
+    if (!overlayRef.current) return;
+    overlayRef.current.style.opacity = visible ? '1' : '0';
+    overlayRef.current.style.visibility = visible ? 'visible' : 'hidden';
+    overlayRef.current.style.pointerEvents = visible ? 'auto' : 'none';
+    overlayRef.current.style.display = visible ? 'block' : 'none';
+  }, []);
 
-  // Jump to a panel
-  const scrollToPanel = useCallback((idx: number) => {
+  const scrollToPanel = useCallback((idx: number, immediate = false) => {
     const track = trackRef.current;
     if (!track) return;
+
+    const clamped = Math.max(0, Math.min(count - 1, idx));
     const trackTop = track.getBoundingClientRect().top + window.scrollY;
-    const totalH = track.offsetHeight - window.innerHeight;
-    const fraction = count > 1 ? idx / (count - 1) : 0;
-    window.scrollTo({ top: trackTop + fraction * totalH, behavior: 'smooth' });
-  }, [count]);
+    const totalH = Math.max(1, track.offsetHeight - window.innerHeight);
+    const fraction = count > 1 ? clamped / (count - 1) : 0;
+    const targetY = trackTop + fraction * totalH;
+
+    switchingRef.current = true;
+    setActiveIdx(clamped);
+    if (panelIds[clamped] && onPanelChange) onPanelChange(panelIds[clamped]);
+
+    const lenis = (window as any).lenis;
+    if (lenis?.scrollTo) {
+      lenis.scrollTo(targetY, { duration: immediate ? 0 : 0.72, force: true });
+    } else {
+      window.scrollTo({ top: targetY, behavior: immediate ? 'auto' : 'smooth' });
+    }
+
+    window.setTimeout(() => {
+      switchingRef.current = false;
+    }, immediate ? 80 : 560);
+  }, [count, onPanelChange, panelIds]);
+
+  useEffect(() => {
+    const syncFromWindow = () => {
+      const track = trackRef.current;
+      if (!track) return;
+
+      const rect = track.getBoundingClientRect();
+      const inRange = rect.top <= 0 && rect.bottom >= window.innerHeight;
+      if (inRange !== isVisible) {
+        setIsVisible(inRange);
+        applyOverlayVisibility(inRange);
+      }
+
+      if (!inRange || switchingRef.current) return;
+
+      const trackTop = track.offsetTop;
+      const totalH = Math.max(1, track.offsetHeight - window.innerHeight);
+      const y = Math.min(totalH, Math.max(0, window.scrollY - trackTop));
+      const nextIdx = Math.round((y / totalH) * (count - 1));
+      if (nextIdx !== activeIdx) {
+        setActiveIdx(nextIdx);
+        if (panelIds[nextIdx] && onPanelChange) onPanelChange(panelIds[nextIdx]);
+      }
+    };
+
+    syncFromWindow();
+    window.addEventListener('scroll', syncFromWindow, { passive: true });
+    return () => window.removeEventListener('scroll', syncFromWindow);
+  }, [activeIdx, applyOverlayVisibility, count, isVisible, onPanelChange, panelIds]);
+
+  const handleOverlayWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (!isVisible || switchingRef.current) return;
+
+    const panel = panelRefs.current[activeIdx];
+    if (!panel) return;
+
+    const delta = e.deltaY;
+    // Ignore very small wheel deltas to prevent twitchy panel jumps on precision trackpads.
+    if (Math.abs(delta) < 20) return;
+    const atTop = panel.scrollTop <= 1;
+    const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 1;
+
+    // Respect local scroll first; only switch panel at boundaries.
+    if (delta > 0 && atBottom && activeIdx < count - 1) {
+      e.preventDefault();
+      e.stopPropagation();
+      scrollToPanel(activeIdx + 1);
+      return;
+    }
+
+    if (delta < 0 && atTop && activeIdx > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      scrollToPanel(activeIdx - 1);
+    }
+  }, [activeIdx, count, isVisible, scrollToPanel]);
 
   return (
     <>
@@ -745,6 +800,7 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
       {createPortal(
         <div
           ref={overlayRef}
+          onWheelCapture={handleOverlayWheel}
           style={{
             position: 'fixed',
             inset: 0,
@@ -772,6 +828,7 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
             {children.map((panel, i) => (
               <div
                 key={i}
+                ref={(el) => { panelRefs.current[i] = el; }}
                 style={{ width: `${vw}px`, minWidth: `${vw}px` }}
                 className="h-full flex-shrink-0 overflow-y-auto"
                 data-lenis-prevent
@@ -783,7 +840,7 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
 
           {/* Indicators */}
           <motion.div
-            style={{ scaleX: scrollYProgress, transformOrigin: 'left' }}
+            style={{ scaleX: progress, transformOrigin: 'left' }}
             className="absolute bottom-0 left-0 h-[2px] w-full bg-val-red/80 origin-left pointer-events-none z-20"
           />
 
@@ -807,7 +864,7 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
           </div>
 
           <div className="absolute top-6 right-8 flex items-center gap-3 z-20 pointer-events-none">
-            <motion.span style={{ opacity: labelOpacity }} className="text-[9px] font-mono text-val-light/40 uppercase tracking-[0.4em]">
+            <motion.span style={{ opacity: isVisible ? 1 : 0 }} className="text-[9px] font-mono text-val-light/40 uppercase tracking-[0.4em]">
               SCROLL_TO_NAVIGATE
             </motion.span>
             <div className="w-4 h-4 border border-val-red/30 flex items-center justify-center">
@@ -3667,18 +3724,20 @@ export default function App() {
     const panelIdx = H_PANEL_LIST.indexOf(p as any);
 
     if (panelIdx !== -1) {
-      // Section is inside the horizontal gallery — use Lenis to scroll to the target position
+      // Section is inside the horizontal gallery — jump to panel-aligned offset
       setTimeout(() => {
         const gallery = document.getElementById('h-gallery-root');
-        const el = document.getElementById(p);
-        if (!gallery || !el) return;
-        
-        // Scroll to the gallery first, then let the horizontal scroll take over
+        if (!gallery) return;
+
         const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
+        const trackHeight = Math.max(1, gallery.offsetHeight - window.innerHeight);
+        const fraction = H_PANEL_LIST.length > 1 ? panelIdx / (H_PANEL_LIST.length - 1) : 0;
+        const targetY = galleryTop + fraction * trackHeight;
+
         if (lenis) {
-          lenis.scrollTo(galleryTop, { duration: 1.2 });
+          lenis.scrollTo(targetY, { duration: 0.9, force: true });
         } else {
-          window.scrollTo({ top: galleryTop, behavior: 'smooth' });
+          window.scrollTo({ top: targetY, behavior: 'smooth' });
         }
       }, 50);
     } else {
