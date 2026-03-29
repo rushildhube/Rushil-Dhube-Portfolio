@@ -36,7 +36,8 @@ import {
   Info,
   ShoppingBag,
   Briefcase,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react';
 
 // --- Custom Icons ---
@@ -331,6 +332,9 @@ const SmoothScroll: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       infinite: false,
     });
 
+    // --- NEW: Expose Lenis globally for modal control ---
+    (window as any).lenis = lenis;
+
     function raf(time: number) {
       lenis.raf(time);
       requestAnimationFrame(raf);
@@ -340,6 +344,7 @@ const SmoothScroll: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
     return () => {
       lenis.destroy();
+      (window as any).lenis = null;
     };
   }, []);
 
@@ -1677,7 +1682,7 @@ const AgentsPage: React.FC = () => {
       title: 'NEURO', 
       spec: 'NLP & RAG Engineering',
       icon: Cpu,
-      skills: ['Large Language Models (LLMs)', 'RAG Vector-DB Architectures', 'Transformers', 'Qdrant', 'TruLens Evaluation', 'Safety Guardrails'],
+      skills: ['LLMs', 'RAG Vector-DB Architectures', 'Transformers', 'Qdrant', 'TruLens Evaluation', 'Safety Guardrails'],
       metrics: '90%+ accuracy in specialized retrieval systems',
       desc: 'Specialist in building neural conversational systems and high-precision evaluation matrices for AI safety.'
     },
@@ -1686,77 +1691,185 @@ const AgentsPage: React.FC = () => {
       title: 'VISION', 
       spec: 'Computer Vision & Deep Learning',
       icon: Eye,
-      skills: ['Computer Vision (OpenCV)', 'CNNs', 'Vision Transformers (ViT)', 'Medical Image Diagnostics', 'Object Tracking'],
+      skills: ['Computer Vision (OpenCV)', 'CNNs', 'Vision Transformers (ViT)', 'Medical Diagnostics', 'Object Tracking'],
       metrics: '92.4% accuracy in diagnostic vision models',
       desc: 'High-precision deep learning implementation for medical imaging and complex visual recognition challenges.'
     }
   ];
 
-  const [selectedAgent, setSelectedAgent] = useState(agents[0]);
+  const [expandedAgent, setExpandedAgent] = useState('core');
+  const [detailedAgent, setDetailedAgent] = useState<typeof agents[0] | null>(null);
+
+  // Lock scroll when modal is open
+  useEffect(() => {
+    const lenis = (window as any).lenis;
+    if (detailedAgent) {
+      document.body.style.overflow = 'hidden';
+      if (lenis) lenis.stop();
+    } else {
+      document.body.style.overflow = 'auto';
+      if (lenis) lenis.start();
+    }
+    return () => { 
+      document.body.style.overflow = 'auto'; 
+      if (lenis) lenis.start();
+    };
+  }, [detailedAgent]);
 
   return (
     <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 flex flex-col items-center">
-      <div className="max-w-7xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12">
-        {/* Agent Selection Rail */}
-        <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-32 h-fit">
-          <div className="flex items-center gap-4 mb-8">
+      <div className="max-w-[1400px] w-full">
+        <ScrollReveal direction="left">
+          <div className="flex items-center gap-4 mb-16">
             <div className="w-2 h-8 bg-val-red"></div>
-            <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">SELECT_AGENT</h2>
+            <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">OPERATIONAL_AGENTS</h2>
           </div>
-          
-          <div className="grid grid-cols-1 gap-4">
-            {agents.map((agent) => (
-              <ScrollReveal key={agent.id} direction="right">
-                <button
-                  onClick={() => setSelectedAgent(agent)}
-                  className={`group relative flex items-center gap-6 p-8 border transition-all duration-500 overflow-hidden w-full ${
-                    selectedAgent.id === agent.id 
-                      ? 'bg-val-red border-val-red text-white' 
-                      : 'bg-val-gray/20 border-val-border text-val-light/40 hover:border-val-red/50 hover:bg-val-gray/40'
-                  }`}
-                >
-                  <div className={`w-12 h-12 flex items-center justify-center transition-transform duration-500 ${selectedAgent.id === agent.id ? 'scale-110' : 'group-hover:scale-110'}`}>
-                    <agent.icon size={32} />
-                  </div>
-                  <div className="flex flex-col items-start text-left">
-                    <span className="font-display font-black text-3xl tracking-tighter italic leading-none mb-1">{agent.title}</span>
-                    <span className={`text-[8px] font-mono tracking-widest uppercase ${selectedAgent.id === agent.id ? 'text-white/60' : 'text-val-light/20'}`}>
-                      {agent.spec.split(',')[0]}
-                    </span>
-                  </div>
-                  {selectedAgent.id === agent.id && (
-                    <motion.div layoutId="agent-active-bar" className="absolute right-0 top-0 bottom-0 w-1.5 bg-white" />
-                  )}
-                </button>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
+        </ScrollReveal>
 
-        {/* Agent Dossier */}
-        <div className="lg:col-span-8 glass-panel p-16 relative overflow-hidden flex flex-col min-h-[700px]">
-          <div className="scanline"></div>
-          <div className="absolute top-0 right-0 p-8 font-mono text-[10px] text-val-light/10 tracking-[0.5em] flex flex-col items-end gap-2">
-            <span>CLASSIFIED // EYES_ONLY</span>
-            <div className="flex gap-1">
-              {[...Array(12)].map((_, i) => (
-                <div key={i} className="w-1 h-1 bg-val-red/20"></div>
-              ))}
-            </div>
-          </div>
-          
-          <AnimatePresence mode="wait">
-            <motion.div 
-              key={selectedAgent.id} 
-              initial={{ opacity: 0, x: 40, filter: 'blur(10px)' }} 
-              animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }} 
-              exit={{ opacity: 0, x: -40, filter: 'blur(10px)' }}
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="h-full flex flex-col"
+        <div className="flex flex-col lg:flex-row h-[1400px] lg:h-[750px] w-full gap-4 lg:gap-6">
+          {agents.map((agent) => {
+            const isActive = expandedAgent === agent.id;
+            return (
+              <motion.div
+                layoutId={`agent-panel-${agent.id}`}
+                key={agent.id}
+                onClick={() => setDetailedAgent(agent)}
+                onMouseEnter={() => setExpandedAgent(agent.id)}
+                initial={false}
+                animate={{ 
+                  flex: isActive ? (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 6 : 4) : 1 
+                }}
+                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                className={`relative glass-panel overflow-hidden cursor-pointer group transition-colors duration-500 border
+                  ${isActive ? 'border-val-red bg-val-red/5' : 'border-val-border hover:bg-val-red/10 bg-val-dark'}
+                `}
+              >
+                {/* Background Glitch & Icon */}
+                <div className="scanline"></div>
+                <motion.div 
+                  animate={{ opacity: isActive ? 0.03 : 0.08, scale: isActive ? 2 : 1, x: isActive ? '30%' : '0%', y: isActive ? '30%' : '0%' }}
+                  transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute bottom-0 right-0 p-8 pointer-events-none origin-bottom-right"
+                >
+                  <agent.icon size={250} className="text-val-red" />
+                </motion.div>
+
+                <div className="flex flex-col h-full p-6 md:p-10 relative z-10 w-full overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center gap-6">
+                    <div className={`w-14 h-14 md:w-16 md:h-16 flex-shrink-0 flex items-center justify-center transition-all duration-500 border
+                      ${isActive ? 'bg-val-red border-val-red text-white shadow-[0_0_20px_rgba(255,70,85,0.4)]' : 'glass-panel border-val-border text-val-red group-hover:border-val-red'}
+                    `}>
+                      <agent.icon size={28} />
+                    </div>
+                    <motion.div 
+                      animate={{ opacity: isActive ? 1 : 0 }}
+                      className="flex-col hidden lg:flex"
+                    >
+                      <span className="text-[10px] font-mono text-val-red tracking-[0.4em] uppercase">Designation</span>
+                      <h3 className="text-4xl md:text-5xl font-display font-black tracking-tighter italic uppercase whitespace-nowrap">{agent.title}</h3>
+                    </motion.div>
+                  </div>
+
+                  {/* Vertical Collapsed Title (Desktop) */}
+                  <motion.div 
+                    initial={false}
+                    animate={{ opacity: !isActive ? 1 : 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="hidden lg:flex absolute bottom-20 left-1/2 -translate-x-1/2 items-center flex-col-reverse justify-start origin-bottom"
+                  >
+                    <h3 className="-rotate-90 text-3xl font-display font-black italic tracking-widest text-val-light/30 group-hover:text-val-red transition-colors whitespace-nowrap min-w-max">
+                      {agent.title}
+                    </h3>
+                  </motion.div>
+                  
+                  {/* Horizontal Collapsed Title (Mobile) */}
+                   <motion.div 
+                    initial={false}
+                    animate={{ opacity: !isActive ? 1 : 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="lg:hidden mt-4"
+                  >
+                    <h3 className="text-2xl font-display font-black italic tracking-widest text-val-light/30 group-hover:text-val-red transition-colors">
+                      {agent.title}
+                    </h3>
+                  </motion.div>
+
+                  {/* Expanded Data Block. Absolute width stops jittering reflows on flex resize */}
+                  <div className="flex-1 relative mt-10">
+                    <motion.div
+                      initial={false}
+                      animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 20 }}
+                      transition={{ duration: 0.7, delay: isActive ? 0.2 : 0, ease: [0.22, 1, 0.36, 1] }}
+                      className={`absolute bottom-0 left-0 flex flex-col justify-end w-[280px] sm:w-[450px] lg:w-[600px] ${isActive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                    >
+                      <div className="px-4 py-1 bg-val-red text-white text-[9px] md:text-[11px] font-black tracking-[0.3em] uppercase italic w-fit mb-6 flex items-center gap-4">
+                        {agent.spec}
+                        <span className="opacity-50 tracking-[0.5em] group-hover:opacity-100 transition-opacity">/// CLICK TO MOUNT</span>
+                      </div>
+                      
+                      <p className="text-val-light/80 text-lg md:text-2xl font-sans italic border-l-4 border-val-red pl-6 mb-8 lg:mb-12 h-20 md:h-24">
+                        "{agent.desc}"
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 border-b border-val-border pb-3">
+                           <Terminal size={14} className="text-val-red" />
+                           <span className="text-[10px] md:text-xs font-mono font-black text-val-light/50 tracking-[0.3em] uppercase">Active_Arsenal</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 md:gap-3">
+                           {agent.skills.map((skill, i) => (
+                             <span key={i} className="text-[9px] md:text-xs font-mono bg-val-dark/80 border border-val-border/50 px-3 py-2 text-val-light/70 whitespace-nowrap backdrop-blur-md">
+                               {skill}
+                             </span>
+                           ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {detailedAgent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            data-lenis-prevent
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12 lg:p-24 overflow-y-auto bg-val-dark/95 backdrop-blur-3xl"
+            onClick={() => setDetailedAgent(null)}
+          >
+            <motion.div
+              layoutId={`agent-panel-${detailedAgent.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-6xl glass-panel relative overflow-hidden flex flex-col border border-val-red shadow-[0_0_80px_rgba(255,70,85,0.2)] p-8 md:p-16 my-auto"
             >
-              <div className="flex flex-col lg:flex-row gap-16 items-start mb-16">
-                <div className="relative group">
-                  <div className="w-64 h-64 glass-panel flex items-center justify-center border-val-red/30 relative overflow-hidden">
+              {/* Close Button */}
+              <button 
+                onClick={() => setDetailedAgent(null)}
+                className="absolute top-8 right-8 z-50 p-4 bg-val-dark/80 border border-val-red/30 text-val-red hover:bg-val-red hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="absolute top-0 right-0 p-8 font-mono text-[10px] text-val-light/10 tracking-[0.5em] flex-col items-end gap-2 pr-32 hidden md:flex">
+                <span>CLASSIFIED // EYES_ONLY</span>
+                <div className="flex gap-1">
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i} className="w-1 h-1 bg-val-red/20"></div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex flex-col lg:flex-row gap-8 lg:gap-16 items-start mb-16 relative z-10 pt-10">
+                <div className="relative group flex-shrink-0">
+                  <div className="w-32 h-32 md:w-64 md:h-64 glass-panel flex items-center justify-center border-val-red/30 relative overflow-hidden">
                     <motion.div 
                       animate={{ 
                         scale: [1, 1.1, 1],
@@ -1765,12 +1878,12 @@ const AgentsPage: React.FC = () => {
                       transition={{ repeat: Infinity, duration: 4 }}
                       className="absolute inset-0 bg-val-red/10"
                     />
-                    <selectedAgent.icon size={96} className="text-val-red relative z-10 drop-shadow-[0_0_15px_rgba(255,70,85,0.5)]" />
+                    <detailedAgent.icon size={80} className="text-val-red relative z-10 drop-shadow-[0_0_15px_rgba(255,70,85,0.5)] md:w-24 md:h-24" />
                     <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-val-red"></div>
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-val-red"></div>
                   </div>
                   <div className="absolute -bottom-4 -right-4 w-12 h-12 glass-panel flex items-center justify-center border-val-red/50 bg-val-dark">
-                    <span className="text-xs font-mono font-black text-val-red">0{agents.findIndex(a => a.id === selectedAgent.id) + 1}</span>
+                    <span className="text-xs font-mono font-black text-val-red">0{agents.findIndex(a => a.id === detailedAgent.id) + 1}</span>
                   </div>
                 </div>
                 
@@ -1780,49 +1893,49 @@ const AgentsPage: React.FC = () => {
                       <div className="w-1.5 h-1.5 bg-val-red"></div>
                       <span className="text-[10px] font-mono text-val-red uppercase tracking-[0.4em]">Agent_Designation</span>
                     </div>
-                    <h1 className="text-8xl font-display font-black tracking-tighter italic leading-none text-white drop-shadow-lg">
-                      {selectedAgent.title}
+                    <h1 className="text-5xl md:text-8xl font-display font-black tracking-tighter italic leading-none text-white drop-shadow-lg uppercase">
+                      {detailedAgent.title}
                     </h1>
                   </div>
                   
                   <div className="flex flex-wrap gap-4">
                     <div className="px-4 py-1 bg-val-red text-white text-[10px] font-black tracking-[0.3em] uppercase italic">
-                      {selectedAgent.spec.split(',')[0]}
+                      {detailedAgent.spec.split(',')[0]}
                     </div>
                     <div className="px-4 py-1 border border-val-border text-val-light/40 text-[10px] font-mono tracking-[0.3em] uppercase">
                       Class: RADIANT
                     </div>
                   </div>
                   
-                  <p className="text-val-light/60 text-xl leading-relaxed max-w-2xl border-l-2 border-val-red/20 pl-8 italic">
-                    "{selectedAgent.desc}"
+                  <p className="text-val-light/60 text-lg md:text-xl leading-relaxed max-w-2xl border-l-2 border-val-red/20 pl-6 md:pl-8 italic">
+                    "{detailedAgent.desc}"
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 mt-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 mt-auto relative z-10">
                 <div className="space-y-8">
                   <div className="flex items-center justify-between border-b border-val-border pb-4">
                     <div className="flex items-center gap-4">
                       <Terminal size={16} className="text-val-red" />
                       <h3 className="text-val-light/40 text-[10px] font-black tracking-[0.4em] uppercase">Technical_Arsenal</h3>
                     </div>
-                    <span className="text-[8px] font-mono text-val-red/40">LOADOUT_SYNCED</span>
+                    <span className="text-[8px] font-mono text-val-red/40 hidden sm:block">LOADOUT_SYNCED</span>
                   </div>
                   <div className="grid grid-cols-1 gap-4">
-                    {selectedAgent.skills.map((skill, idx) => (
+                    {detailedAgent.skills.map((skill, idx) => (
                       <motion.div 
                         key={idx}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.1 }}
-                        className="flex items-center justify-between p-5 bg-val-dark/40 border border-val-border group hover:border-val-red/50 transition-all hover:translate-x-2"
+                        className="flex items-center justify-between p-4 md:p-5 bg-val-dark/40 border border-val-border group hover:border-val-red/50 transition-all hover:translate-x-2"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-1 h-1 bg-val-red/40"></div>
-                          <span className="text-sm font-mono text-val-light/80 tracking-tight">{skill}</span>
+                          <div className="w-1 h-1 bg-val-red/40 group-hover:bg-val-red transition-colors"></div>
+                          <span className="text-xs md:text-sm font-mono text-val-light/80 tracking-tight">{skill}</span>
                         </div>
-                        <div className="w-8 h-px bg-val-border group-hover:w-12 group-hover:bg-val-red transition-all"></div>
+                        <div className="w-8 h-px bg-val-border group-hover:w-16 group-hover:bg-val-red transition-all"></div>
                       </motion.div>
                     ))}
                   </div>
@@ -1834,18 +1947,18 @@ const AgentsPage: React.FC = () => {
                       <Activity size={16} className="text-val-red" />
                       <h3 className="text-val-red text-[10px] font-black tracking-[0.4em] uppercase">Performance_Analytics</h3>
                     </div>
-                    <span className="text-[8px] font-mono text-green-500/40">OPTIMAL_STATE</span>
+                    <span className="text-[8px] font-mono text-green-500/40 hidden sm:block">OPTIMAL_STATE</span>
                   </div>
-                  <div className="glass-panel p-10 border-glow bg-val-red/5 relative group overflow-hidden">
+                  <div className="glass-panel p-6 md:p-10 border-glow bg-val-red/5 relative group overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-val-red/5 rotate-45 translate-x-16 -translate-y-16"></div>
                     <div className="flex items-center gap-6 mb-8">
-                      <div className="w-12 h-12 bg-val-red/10 border border-val-red/20 flex items-center justify-center">
+                      <div className="w-12 h-12 bg-val-red/10 border border-val-red/20 flex flex-shrink-0 items-center justify-center">
                         <BarChart3 className="text-val-red" size={24} />
                       </div>
                       <div>
                         <div className="text-[8px] font-mono text-val-light/30 uppercase tracking-widest mb-1">Mission Success Metric</div>
-                        <div className="text-3xl font-display font-black text-val-light tracking-tight italic">
-                          {selectedAgent.metrics.split(',')[0]}
+                        <div className="text-2xl md:text-3xl font-display font-black text-val-light tracking-tight italic">
+                          {detailedAgent.metrics.split(',')[0]}
                         </div>
                       </div>
                     </div>
@@ -1859,8 +1972,8 @@ const AgentsPage: React.FC = () => {
                         <motion.div 
                           initial={{ width: 0 }}
                           animate={{ width: '98.4%' }}
-                          transition={{ duration: 1.5, delay: 0.5 }}
-                          className="h-full bg-val-red"
+                          transition={{ duration: 1.5, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                          className="h-full bg-val-red shadow-[0_0_10px_#ff4655]"
                         />
                       </div>
                     </div>
@@ -1872,22 +1985,22 @@ const AgentsPage: React.FC = () => {
                             key={i}
                             animate={{ opacity: [0.2, 1, 0.2] }}
                             transition={{ repeat: Infinity, duration: 2, delay: i * 0.1 }}
-                            className="w-1 h-5 bg-val-red/30"
+                            className="w-1 h-4 md:h-5 bg-val-red/30"
                           />
                         ))}
                       </div>
                       <div className="text-right">
                         <div className="text-[8px] font-mono text-val-light/20 uppercase tracking-[0.5em] mb-1">Status</div>
-                        <div className="text-[10px] font-display font-black text-green-500 tracking-widest">READY_FOR_DEPLOYMENT</div>
+                        <div className="text-[9px] md:text-[10px] font-display font-black text-green-500 tracking-widest">READY_FOR_DEPLOYMENT</div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
