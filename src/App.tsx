@@ -680,11 +680,36 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
   const switchingRef = useRef(false);
   const count = children.length;
 
-  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1920));
+  const getViewportSize = () => {
+    if (typeof window === 'undefined') return { width: 1920, height: 1080 };
+    const vv = window.visualViewport;
+    return {
+      width: Math.max(320, Math.round(vv?.width ?? window.innerWidth)),
+      height: Math.max(520, Math.round(vv?.height ?? window.innerHeight)),
+    };
+  };
+
+  const [viewport, setViewport] = useState(getViewportSize);
+  const vw = viewport.width;
+  const vh = viewport.height;
+
   useEffect(() => {
-    const ro = new ResizeObserver(() => setVw(window.innerWidth));
+    const syncViewport = () => setViewport(getViewportSize());
+
+    const ro = new ResizeObserver(syncViewport);
     ro.observe(document.documentElement);
-    return () => ro.disconnect();
+    window.addEventListener('resize', syncViewport);
+    window.addEventListener('orientationchange', syncViewport);
+    window.visualViewport?.addEventListener('resize', syncViewport);
+    window.visualViewport?.addEventListener('scroll', syncViewport);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', syncViewport);
+      window.removeEventListener('orientationchange', syncViewport);
+      window.visualViewport?.removeEventListener('resize', syncViewport);
+      window.visualViewport?.removeEventListener('scroll', syncViewport);
+    };
   }, []);
   const [activeIdx, setActiveIdx] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -792,7 +817,7 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
       <div
         ref={trackRef}
         id="h-gallery-root"
-        style={{ height: `${count * 100}vh` }}
+        style={{ height: `${count * vh}px` }}
         className="relative w-full overflow-hidden"
         aria-hidden="true"
       />
@@ -829,7 +854,7 @@ const HorizontalScrollGallery: React.FC<HGalleryProps> = ({ children, panelIds =
               <div
                 key={i}
                 ref={(el) => { panelRefs.current[i] = el; }}
-                style={{ width: `${vw}px`, minWidth: `${vw}px` }}
+                style={{ width: `${vw}px`, minWidth: `${vw}px`, minHeight: `${vh}px` }}
                 className="h-full flex-shrink-0 overflow-y-auto"
                 data-lenis-prevent
               >
