@@ -2965,15 +2965,24 @@ export default function App() {
     setCurrentPage('mission-detail');
   };
 
-  const handleBackToMissions = () => {
-    setCurrentPage('missions');
-    setSelectedProject(null);
+  const executeNav = (p: Page) => {
+    if (p === 'mission-detail') return;
+
+    if (selectedProject) {
+      setSelectedProject(null);
+    }
+    
+    setTimeout(() => {
+      const el = document.getElementById(p);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+    
+    setCurrentPage(p); 
   };
 
-  const pageVariants = {
-    initial: { opacity: 0, y: 10 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
-    exit: { opacity: 0, y: -10, transition: { duration: 0.4 } }
+  const handleBackToMissions = () => {
+    setSelectedProject(null);
+    executeNav('missions');
   };
 
   return (
@@ -2995,40 +3004,66 @@ export default function App() {
               <Navbar 
                 isOpen={isNavOpen} 
                 onToggle={() => setIsNavOpen(!isNavOpen)} 
-                setPage={setCurrentPage}
+                setPage={executeNav}
               />
               
               <NavOverlay 
                 isOpen={isNavOpen} 
                 activePage={currentPage} 
-                setPage={setCurrentPage} 
+                setPage={executeNav} 
                 onClose={() => setIsNavOpen(false)}
               />
 
               <HUDOverlay />
-              <TerminalOverlay setPage={setCurrentPage} />
+              <TerminalOverlay setPage={executeNav} />
               
-              <main className="relative z-10">
+              <main className="relative z-10 w-full">
                 <AnimatePresence mode="wait">
-                  <motion.div
-                    key={currentPage + (selectedProject?.id || '')}
-                    variants={pageVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    className="min-h-screen"
-                  >
-                    {currentPage === 'home' && <HomePage setPage={setCurrentPage} />}
-                    {currentPage === 'agents' && <AgentsPage />}
-                    {currentPage === 'missions' && <MissionsPage onSelectProject={handleSelectProject} />}
-                    {currentPage === 'mission-detail' && selectedProject && (
+                  {selectedProject ? (
+                    <motion.div
+                      key="mission-detail"
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }}
+                      exit={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+                      className="min-h-screen bg-val-dark z-50 relative"
+                    >
                       <MissionDetailPage project={selectedProject} onBack={handleBackToMissions} />
-                    )}
-                    {currentPage === 'core' && <SystemsCorePage />}
-                    {currentPage === 'docs' && <DocsPage />}
-                    {currentPage === 'career' && <CareerPage />}
-                    {currentPage === 'contact' && <ContactPage />}
-                  </motion.div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="main-scroll"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1, transition: { duration: 1 } }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col w-full"
+                    >
+                      <section id="home"><HomePage setPage={executeNav} /></section>
+                      
+                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
+                      
+                      <section id="agents"><AgentsPage /></section>
+                      
+                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
+                      
+                      <section id="missions"><MissionsPage onSelectProject={handleSelectProject} /></section>
+                      
+                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
+                      
+                      <section id="core"><SystemsCorePage /></section>
+                      
+                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
+                      
+                      <section id="career"><CareerPage /></section>
+                      
+                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
+                      
+                      <section id="docs"><DocsPage /></section>
+                      
+                      <div className="w-full flex justify-center py-20 opacity-30"><div className="w-px h-32 bg-gradient-to-b from-transparent via-val-red to-transparent"></div></div>
+                      
+                      <section id="contact"><ContactPage /></section>
+                    </motion.div>
+                  )}
                 </AnimatePresence>
               </main>
 
