@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;700;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-val-red: #ff4655;
+  --color-val-dark: #0f1923;
+  --color-val-gray: #1f2326;
+  --color-val-light: #ece8e1;
+  --color-val-border: rgba(255, 255, 255, 0.1);
+  --color-val-cyan: #00f2ff;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-val-dark text-val-light font-sans antialiased overflow-x-hidden;
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(255, 70, 85, 0.05) 0%, transparent 50%),
+      linear-gradient(rgba(15, 25, 35, 0.97), rgba(15, 25, 35, 0.97));
+  }
+
+  html.lenis, html.lenis body {
+    height: auto;
+  }
+
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  .lenis.lenis-scrolling iframe {
+    pointer-events: none;
+  }
+
+
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display uppercase tracking-wider;
+  }
+}
+
+.glass-panel {
+  @apply bg-val-gray/40 backdrop-blur-xl border border-val-border relative;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+}
+
+.glass-panel::before {
+  content: '';
+  @apply absolute inset-0 border-t border-l border-white/5 pointer-events-none;
+}
+
+.val-button {
+  @apply relative px-8 py-4 uppercase font-display font-black tracking-[0.2em] transition-all duration-300 overflow-hidden text-sm;
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 92% 100%, 0 100%);
+}
+
+.val-button-primary {
+  @apply bg-val-red text-white hover:bg-white hover:text-val-red;
+  box-shadow: 0 0 20px rgba(255, 70, 85, 0.3);
+}
+
+.val-button-primary:hover {
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+}
+
+.val-button-outline {
+  @apply border border-val-red/50 text-val-red hover:bg-val-red hover:text-white;
+}
+
+.val-card {
+  @apply border-l-4 border-val-red bg-val-gray/50 p-6 transition-all duration-300 hover:bg-val-gray/80 relative;
+}
+
+.scanline {
+  width: 100%;
+  height: 100px;
+  z-index: 100;
+  background: linear-gradient(0deg, rgba(255, 70, 85, 0) 0%, rgba(255, 70, 85, 0.1) 50%, rgba(255, 70, 85, 0) 100%);
+  opacity: 0.1;
+  position: absolute;
+  bottom: 100%;
+  animation: scan 4s linear infinite;
+}
+
+@keyframes scan {
+  0% { bottom: 100%; }
+  100% { bottom: -100px; }
+}
+
+.glitch-hover:hover {
+  animation: glitch 0.3s cubic-bezier(.25,.46,.45,.94) both infinite;
+}
+
+@keyframes glitch {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-val-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-val-red;
+}
+
+.text-glow {
+  text-shadow: 0 0 10px rgba(255, 70, 85, 0.5);
+}
+
+.border-glow {
+  box-shadow: inset 0 0 15px rgba(255, 70, 85, 0.2), 0 0 15px rgba(255, 70, 85, 0.2);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
