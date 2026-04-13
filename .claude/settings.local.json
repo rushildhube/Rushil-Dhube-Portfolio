@@ -1,5 +1,10 @@
 {
   "permissions": {
-    "allow": ["Bash(npx eslint:*)", "Bash(npx tsc:*)", "Bash(npm install:*)"]
+    "allow": [
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(grep -r \"val-dark\\\\|val-gray\\\\|color-val\" tailwind.config* src/index.css)"
+    ]
   }
 }

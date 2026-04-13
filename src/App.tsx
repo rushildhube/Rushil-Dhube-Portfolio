@@ -11,7 +11,6 @@ import {
   useScroll,
   useTransform,
   useSpring,
-  useMotionValue,
   useMotionValueEvent,
   useInView,
   useDragControls,
@@ -822,39 +821,6 @@ const ParallaxImage: React.FC<{
   );
 };
 
-const HorizontalScroll: React.FC<{ children: React.ReactNode; title: string }> = ({
-  children,
-  title,
-}) => {
-  const targetRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: targetRef,
-  });
-
-  const x = useTransform(scrollYProgress, [0, 1], ['0%', '-70%']);
-
-  return (
-    <section ref={targetRef} className="relative h-[300vh] bg-val-dark/50">
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
-        <div className="absolute top-20 left-12 md:left-24 z-20">
-          <h2 className="text-val-red text-xs font-mono tracking-[1em] uppercase mb-4 opacity-50">
-            ACTIVE_REEL
-          </h2>
-          <h3 className="text-6xl md:text-8xl font-display font-black italic tracking-tighter uppercase whitespace-nowrap text-white/5 pointer-events-none absolute -top-10 -left-10">
-            {title}
-          </h3>
-          <h3 className="text-4xl md:text-6xl font-display font-black italic tracking-tighter uppercase text-white">
-            {title}
-          </h3>
-        </div>
-        <motion.div style={{ x }} className="flex gap-12 px-12 md:px-24">
-          {children}
-        </motion.div>
-      </div>
-    </section>
-  );
-};
-
 const TextReveal: React.FC<{ text: string; className?: string }> = ({ text, className = '' }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-10px' });
@@ -869,283 +835,6 @@ const TextReveal: React.FC<{ text: string; className?: string }> = ({ text, clas
     >
       {text}
     </motion.div>
-  );
-};
-
-// ── Horizontal Scroll Gallery ──────────────────────────────────────────────
-// Architecture: a tall <div> (scroll track) provides the scroll distance.
-// A position:fixed overlay becomes visible only while the track is in view,
-// and slides its panels horizontally via a MotionValue spring.
-// This avoids position:sticky entirely (which breaks under motion.div ancestors).
-type HGalleryProps = {
-  children: React.ReactNode[];
-  panelIds?: string[];
-  onPanelChange?: (id: string) => void;
-};
-
-// ── Horizontal Scroll Gallery ──────────────────────────────────────────────
-// Architecture: a tall <div> (scroll track) provides the scroll distance.
-// A position:fixed overlay (Portaled to body) becomes visible only while
-// the track is in viewport. We use useScroll targeting the track.
-const HorizontalScrollGallery: React.FC<HGalleryProps> = ({
-  children,
-  panelIds = [],
-  onPanelChange,
-}) => {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const panelRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const switchingRef = useRef(false);
-  const count = children.length;
-
-  const getViewportSize = () => {
-    if (typeof window === 'undefined') return { width: 1920, height: 1080 };
-    const vv = window.visualViewport;
-    return {
-      width: Math.max(320, Math.round(vv?.width ?? window.innerWidth)),
-      height: Math.max(520, Math.round(vv?.height ?? window.innerHeight)),
-    };
-  };
-
-  const [viewport, setViewport] = useState(getViewportSize);
-  const vw = viewport.width;
-  const vh = viewport.height;
-
-  useEffect(() => {
-    const syncViewport = () => setViewport(getViewportSize());
-
-    const ro = new ResizeObserver(syncViewport);
-    ro.observe(document.documentElement);
-    window.addEventListener('resize', syncViewport);
-    window.addEventListener('orientationchange', syncViewport);
-    window.visualViewport?.addEventListener('resize', syncViewport);
-    window.visualViewport?.addEventListener('scroll', syncViewport);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', syncViewport);
-      window.removeEventListener('orientationchange', syncViewport);
-      window.visualViewport?.removeEventListener('resize', syncViewport);
-      window.visualViewport?.removeEventListener('scroll', syncViewport);
-    };
-  }, []);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
-
-  const xTarget = useMotionValue(0);
-  const xSpring = useSpring(xTarget, { stiffness: 92, damping: 34, mass: 0.55 });
-  const progress = count > 1 ? activeIdx / (count - 1) : 0;
-
-  useEffect(() => {
-    xTarget.set(-activeIdx * vw);
-  }, [activeIdx, vw, xTarget]);
-
-  const applyOverlayVisibility = useCallback((visible: boolean) => {
-    if (!overlayRef.current) return;
-    overlayRef.current.style.opacity = visible ? '1' : '0';
-    overlayRef.current.style.visibility = visible ? 'visible' : 'hidden';
-    overlayRef.current.style.pointerEvents = visible ? 'auto' : 'none';
-    overlayRef.current.style.display = visible ? 'block' : 'none';
-  }, []);
-
-  const scrollToPanel = useCallback(
-    (idx: number, immediate = false) => {
-      const track = trackRef.current;
-      if (!track) return;
-
-      const clamped = Math.max(0, Math.min(count - 1, idx));
-      const trackTop = track.getBoundingClientRect().top + window.scrollY;
-      const totalH = Math.max(1, track.offsetHeight - window.innerHeight);
-      const fraction = count > 1 ? clamped / (count - 1) : 0;
-      const targetY = trackTop + fraction * totalH;
-
-      switchingRef.current = true;
-      setActiveIdx(clamped);
-      if (panelIds[clamped] && onPanelChange) onPanelChange(panelIds[clamped]);
-
-      const lenis = (window as any).lenis;
-      if (lenis?.scrollTo) {
-        lenis.scrollTo(targetY, { duration: immediate ? 0 : 0.72, force: true });
-      } else {
-        window.scrollTo({ top: targetY, behavior: immediate ? 'auto' : 'smooth' });
-      }
-
-      window.setTimeout(
-        () => {
-          switchingRef.current = false;
-        },
-        immediate ? 80 : 560
-      );
-    },
-    [count, onPanelChange, panelIds]
-  );
-
-  useEffect(() => {
-    const syncFromWindow = () => {
-      const track = trackRef.current;
-      if (!track) return;
-
-      const rect = track.getBoundingClientRect();
-      const inRange = rect.top <= 0 && rect.bottom >= window.innerHeight;
-      if (inRange !== isVisible) {
-        setIsVisible(inRange);
-        applyOverlayVisibility(inRange);
-      }
-
-      if (!inRange || switchingRef.current) return;
-
-      const trackTop = track.offsetTop;
-      const totalH = Math.max(1, track.offsetHeight - window.innerHeight);
-      const y = Math.min(totalH, Math.max(0, window.scrollY - trackTop));
-      const nextIdx = Math.round((y / totalH) * (count - 1));
-      if (nextIdx !== activeIdx) {
-        setActiveIdx(nextIdx);
-        if (panelIds[nextIdx] && onPanelChange) onPanelChange(panelIds[nextIdx]);
-      }
-    };
-
-    syncFromWindow();
-    window.addEventListener('scroll', syncFromWindow, { passive: true });
-    return () => window.removeEventListener('scroll', syncFromWindow);
-  }, [activeIdx, applyOverlayVisibility, count, isVisible, onPanelChange, panelIds]);
-
-  const handleOverlayWheel = useCallback(
-    (e: React.WheelEvent<HTMLDivElement>) => {
-      if (!isVisible || switchingRef.current) return;
-
-      const panel = panelRefs.current[activeIdx];
-      if (!panel) return;
-
-      const delta = e.deltaY;
-      // Ignore very small wheel deltas to prevent twitchy panel jumps on precision trackpads.
-      if (Math.abs(delta) < 20) return;
-      const atTop = panel.scrollTop <= 1;
-      const atBottom = panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 1;
-
-      // Respect local scroll first; only switch panel at boundaries.
-      if (delta > 0 && atBottom && activeIdx < count - 1) {
-        e.preventDefault();
-        e.stopPropagation();
-        scrollToPanel(activeIdx + 1);
-        return;
-      }
-
-      if (delta < 0 && atTop && activeIdx > 0) {
-        e.preventDefault();
-        e.stopPropagation();
-        scrollToPanel(activeIdx - 1);
-      }
-    },
-    [activeIdx, count, isVisible, scrollToPanel]
-  );
-
-  return (
-    <>
-      <div
-        ref={trackRef}
-        id="h-gallery-root"
-        style={{ height: `${count * vh}px` }}
-        className="relative w-full overflow-hidden"
-        aria-hidden="true"
-      />
-
-      {createPortal(
-        <div
-          ref={overlayRef}
-          onWheelCapture={handleOverlayWheel}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100, // Boost z-index to ensure it beats main content
-            opacity: 0,
-            visibility: 'hidden',
-            display: 'none',
-            pointerEvents: 'none',
-            overflow: 'hidden',
-            background: '#0f1923', // Hardcoded dark background to be same
-          }}
-        >
-          {/* Background grid */}
-          <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03]">
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-                backgroundSize: '100px 100px',
-              }}
-            />
-          </div>
-
-          <motion.div
-            style={{ x: xSpring, willChange: 'transform' }}
-            className="flex h-full relative z-10"
-          >
-            {children.map((panel, i) => (
-              <div
-                key={i}
-                ref={(el) => {
-                  panelRefs.current[i] = el;
-                }}
-                style={{ width: `${vw}px`, minWidth: `${vw}px`, minHeight: `${vh}px` }}
-                className="h-full flex-shrink-0 overflow-y-auto"
-                data-lenis-prevent
-              >
-                {panel}
-              </div>
-            ))}
-          </motion.div>
-
-          {/* Indicators */}
-          <motion.div
-            style={{ scaleX: progress, transformOrigin: 'left' }}
-            className="absolute bottom-0 left-0 h-[2px] w-full bg-val-red/80 origin-left pointer-events-none z-20"
-          />
-
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-30">
-            {children.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => scrollToPanel(i)}
-                className="flex items-center justify-center w-6 h-6 outline-none"
-              >
-                <motion.div
-                  animate={{
-                    scale: i === activeIdx ? 1.6 : 1,
-                    opacity: i === activeIdx ? 1 : 0.3,
-                    backgroundColor: i === activeIdx ? '#ff4655' : 'rgba(255,255,255,0.5)',
-                  }}
-                  className="w-2 h-2 rounded-full"
-                />
-              </button>
-            ))}
-          </div>
-
-          <div className="absolute top-6 right-8 flex items-center gap-3 z-20 pointer-events-none">
-            <motion.span
-              style={{ opacity: isVisible ? 1 : 0 }}
-              className="text-[9px] font-mono text-val-light/40 uppercase tracking-[0.4em]"
-            >
-              SCROLL_TO_NAVIGATE
-            </motion.span>
-            <div className="w-4 h-4 border border-val-red/30 flex items-center justify-center">
-              <motion.div
-                animate={{ x: [0, 5, 0] }}
-                transition={{ repeat: Infinity, duration: 1.2 }}
-                className="w-1.5 h-1.5 bg-val-red/60"
-              />
-            </div>
-          </div>
-
-          {/* Panel counter */}
-          <div className="absolute bottom-6 right-8 pointer-events-none z-20">
-            <span className="text-[10px] font-mono text-val-light/20 tabular-nums">
-              {String(activeIdx + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
-            </span>
-          </div>
-        </div>,
-        document.body
-      )}
-    </>
   );
 };
 
@@ -2209,7 +1898,7 @@ const GlitchText: React.FC<{ children: string; className?: string }> = ({
 
 const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
   return (
-    <div className="min-h-screen flex flex-col xl:flex-row items-center justify-center gap-12 lg:gap-20 px-6 md:px-12 lg:px-24 mx-auto max-w-7xl pt-32 pb-12 w-full">
+    <div className="min-h-screen flex flex-col xl:flex-row items-center justify-start xl:justify-center gap-12 lg:gap-20 px-6 md:px-12 lg:px-24 mx-auto max-w-7xl pt-32 pb-12 w-full">
       {/* Left: Profile Card */}
       <motion.div
         initial={{ x: -100, opacity: 0 }}
@@ -4694,10 +4383,6 @@ export default function App() {
     setCurrentPage('mission-detail');
   };
 
-  // Ids of sections living inside the horizontal gallery
-  const H_PANEL_IDS = ['agents', 'missions', 'core', 'career', 'docs'] as const;
-  const H_PANEL_LIST = [...H_PANEL_IDS];
-
   const executeNav = (p: Page) => {
     if (p === 'mission-detail') return;
 
@@ -4707,42 +4392,39 @@ export default function App() {
 
     const lenis = (window as any).lenis;
 
-    const panelIdx = H_PANEL_LIST.indexOf(p as any);
-
-    if (panelIdx !== -1) {
-      // Section is inside the horizontal gallery — jump to panel-aligned offset
-      setTimeout(() => {
-        const gallery = document.getElementById('h-gallery-root');
-        if (!gallery) return;
-
-        const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
-        const trackHeight = Math.max(1, gallery.offsetHeight - window.innerHeight);
-        const fraction = H_PANEL_LIST.length > 1 ? panelIdx / (H_PANEL_LIST.length - 1) : 0;
-        const targetY = galleryTop + fraction * trackHeight;
-
-        if (lenis) {
-          lenis.scrollTo(targetY, { duration: 0.9, force: true });
-        } else {
-          window.scrollTo({ top: targetY, behavior: 'smooth' });
-        }
-      }, 50);
-    } else {
-      // Normal vertical section — scroll to section top
-      setTimeout(() => {
-        const el = document.getElementById(p);
-        if (!el) return;
-
-        const targetY = el.getBoundingClientRect().top + window.scrollY;
-        if (lenis) {
-          lenis.scrollTo(targetY, { duration: 1.2 });
-        } else {
-          el.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 50);
-    }
+    setTimeout(() => {
+      const el = document.getElementById(p);
+      if (!el) return;
+      const targetY = el.getBoundingClientRect().top + window.scrollY;
+      if (lenis) {
+        lenis.scrollTo(targetY, { duration: 1.2 });
+      } else {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 50);
 
     setCurrentPage(p);
   };
+
+  // Track which section is currently in the viewport centre for nav highlighting
+  useEffect(() => {
+    if (appState !== 'ready' || selectedProject) return;
+    const ids: Page[] = ['home', 'agents', 'missions', 'core', 'career', 'docs', 'contact'];
+    // rootMargin '-45% 0px -45% 0px' only fires when element crosses the centre 10% band
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) setCurrentPage(entry.target.id as Page);
+        });
+      },
+      { rootMargin: '-45% 0px -45% 0px', threshold: 0 }
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [appState, selectedProject]);
 
   const handleBackToMissions = () => {
     setSelectedProject(null);
@@ -4818,37 +4500,25 @@ export default function App() {
                       exit={{ opacity: 0 }}
                       className="flex flex-col w-full"
                     >
-                      {/* ── ZONE 1: Normal vertical scroll ── */}
-                      <section id="home">
+                      <section id="home" className="bg-val-dark">
                         <HomePage setPage={executeNav} />
                       </section>
-
-                      {/* ── ZONE 2: Horizontal scroll gallery (pinned) ── */}
-                      <HorizontalScrollGallery
-                        panelIds={['agents', 'missions', 'core', 'career', 'docs']}
-                        onPanelChange={(id) => setCurrentPage(id as Page)}
-                      >
-                        {[
-                          <section id="agents" key="agents">
-                            <AgentsPage />
-                          </section>,
-                          <section id="missions" key="missions">
-                            <MissionsPage onSelectProject={handleSelectProject} />
-                          </section>,
-                          <section id="core" key="core">
-                            <SystemsCorePage />
-                          </section>,
-                          <section id="career" key="career">
-                            <CareerPage />
-                          </section>,
-                          <section id="docs" key="docs">
-                            <DocsPage />
-                          </section>,
-                        ]}
-                      </HorizontalScrollGallery>
-
-                      {/* ── ZONE 3: Normal vertical scroll ── */}
-                      <section id="contact">
+                      <section id="agents" className="bg-val-dark">
+                        <AgentsPage />
+                      </section>
+                      <section id="missions" className="bg-val-dark">
+                        <MissionsPage onSelectProject={handleSelectProject} />
+                      </section>
+                      <section id="core" className="bg-val-dark">
+                        <SystemsCorePage />
+                      </section>
+                      <section id="career" className="bg-val-dark">
+                        <CareerPage />
+                      </section>
+                      <section id="docs" className="bg-val-dark">
+                        <DocsPage />
+                      </section>
+                      <section id="contact" className="bg-val-dark">
                         <ContactPage />
                       </section>
                     </motion.div>
