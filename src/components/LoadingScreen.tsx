@@ -12,7 +12,7 @@ const LoadingScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => 
   useEffect(() => {
     const timer = setTimeout(onComplete, 3000);
     return () => clearTimeout(timer);
-  }, []);
+  }, []); // onComplete intentionally omitted — timer must only fire once on mount
 
   return (
     <motion.div

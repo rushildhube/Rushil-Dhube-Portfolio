@@ -24,7 +24,7 @@ const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onS
   };
 
   return (
-    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 relative w-full">
+    <div className="min-h-screen py-8 px-6 md:px-12 lg:px-24 relative w-full">
       {createPortal(
         <AnimatePresence>
           {isDeploying && (
@@ -61,36 +61,33 @@ const MissionsPage: React.FC<{ onSelectProject: (p: Project) => void }> = ({ onS
       )}
 
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8">
-          <div className="space-y-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
+          <div className="space-y-3">
             <div className="flex items-center gap-4">
               <div className="w-2 h-8 bg-val-red"></div>
               <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">
                 ACTIVE_OPERATIONS
               </h2>
             </div>
-            <h1 className="text-7xl font-display font-black tracking-tighter italic leading-none text-white whitespace-pre-wrap">
-              ACTIVE_OPERATIONS
-            </h1>
           </div>
-          <div className="glass-panel px-8 py-4 flex items-center gap-8">
+          <div className="glass-panel px-6 py-3 flex items-center gap-6">
             <div className="flex flex-col">
               <span className="text-[8px] font-mono text-val-light/30 uppercase tracking-widest">
                 Op_Count
               </span>
-              <span className="text-3xl font-display font-black text-val-red">08</span>
+              <span className="text-2xl font-display font-black text-val-red">08</span>
             </div>
-            <div className="w-px h-10 bg-val-border"></div>
+            <div className="w-px h-8 bg-val-border"></div>
             <div className="flex flex-col">
               <span className="text-[8px] font-mono text-val-light/30 uppercase tracking-widest">
                 Success_Rate
               </span>
-              <span className="text-3xl font-display font-black text-val-light">100%</span>
+              <span className="text-2xl font-display font-black text-val-light">100%</span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-4">
           {PROJECTS.map((project) => (
             <motion.div
               key={project.id}

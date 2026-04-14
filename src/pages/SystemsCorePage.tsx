@@ -345,9 +345,9 @@ const SystemsCorePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full flex flex-col items-center">
-      <div className="max-w-7xl mx-auto mb-16 relative z-10 text-center">
-        <div className="flex flex-col items-center gap-4">
+    <div className="min-h-screen py-8 px-6 md:px-12 lg:px-24 w-full flex flex-col items-center">
+      <div className="max-w-7xl mx-auto mb-8 relative z-10 text-center">
+        <div className="flex flex-col items-center gap-3">
           <div className="flex items-center gap-4">
             <div className="w-8 h-[2px] bg-val-red/40"></div>
             <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">
@@ -355,7 +355,7 @@ const SystemsCorePage: React.FC = () => {
             </h2>
             <div className="w-8 h-[2px] bg-val-red/40"></div>
           </div>
-          <h1 className="text-7xl font-display font-black tracking-tighter italic leading-none text-white drop-shadow-lg">
+          <h1 className="text-6xl font-display font-black tracking-tighter italic leading-none text-white drop-shadow-lg">
             NEURAL_LOADOUT
           </h1>
           <p className="text-val-light/40 font-mono text-xs uppercase tracking-[0.3em] max-w-xl">
@@ -367,10 +367,7 @@ const SystemsCorePage: React.FC = () => {
 
       <div
         ref={containerRef}
-        data-lenis-prevent
-        onWheelCapture={(e) => e.stopPropagation()}
-        onTouchMoveCapture={(e) => e.stopPropagation()}
-        className="w-full max-w-7xl h-[60vh] md:h-[700px] glass-panel border border-val-border relative overflow-hidden group touch-none"
+        className="w-full max-w-7xl h-[60vh] md:h-[700px] glass-panel border border-val-border relative overflow-hidden group"
       >
         <div className="absolute top-0 right-0 p-8 font-mono text-[10px] text-val-light/20 tracking-[0.5em] flex flex-col items-end gap-2 z-10 pointer-events-none">
           <span>LIVE_SIMULATION</span>

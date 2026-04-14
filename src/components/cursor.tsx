@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, useSpring } from 'motion/react';
 
 export const CustomCursor: React.FC = () => {
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
 
@@ -16,7 +15,6 @@ export const CustomCursor: React.FC = () => {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
       cursorX.set(e.clientX);
       cursorY.set(e.clientY);
     };
@@ -51,7 +49,7 @@ export const CustomCursor: React.FC = () => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, []); // cursorX/cursorY are MotionValues (stable refs) — no re-run needed
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[9999] hidden lg:block">

@@ -3,75 +3,83 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { motion } from 'motion/react';
+import React, { useRef, useEffect, useCallback } from 'react';
 
 /**
  * HorizontalScrollSection
  *
- * Uses CSS `position: sticky` on an outer wrapper so the viewport pins while
- * the user scrolls through a wide horizontal track.  The wrapper's height is
- * calculated as `(panelCount × 100)vh` so native scroll naturally moves
- * through every panel — no JS scroll hijacking, no Lenis conflicts.
+ * Wrapper = panelCount × 100vh. Sticky viewport pins 100vh to screen.
+ * Panels have overflow-y: auto so content scrolls locally. When a panel
+ * reaches its scroll boundary, wheel events bubble to the window, driving
+ * the translateX advance to the next panel.
  *
- * A lightweight `scroll` listener on `window` maps the native scroll offset
- * to the active panel index and fires `onActiveChange`.
+ * Wheel flow per panel:
+ *   - scrolling down + at bottom  → bubble to window → horizontal advance
+ *   - scrolling up + at top       → bubble to window → horizontal retreat
+ *   - otherwise                   → consume → local scroll inside panel
  */
 
 interface HorizontalScrollSectionProps {
   id: string;
   panels: { id: string; node: React.ReactNode }[];
   onActiveChange?: (panelId: string) => void;
+  className?: string;
 }
 
 const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = ({
   id,
   panels,
   onActiveChange,
+  className = '',
 }) => {
-  const trackRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-
+  const trackRef = useRef<HTMLDivElement>(null);
+  const panelRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const panelCount = panels.length;
+  const onActiveChangeRef = useRef(onActiveChange);
+  const PANEL_SCROLL_BUDGET = 100; // vh per panel
 
-  const computeActiveIndex = useCallback(() => {
+  useEffect(() => {
+    onActiveChangeRef.current = onActiveChange;
+  }, [onActiveChange]);
+
+  const applyScrollTransform = useCallback(() => {
     const wrapper = wrapperRef.current;
-    if (!wrapper) return;
+    const track = trackRef.current;
+    if (!wrapper || !track) return;
 
-    const rect = wrapper.getBoundingClientRect();
-    const wrapperTop = rect.top + window.scrollY;
-    // The sticky viewport height
+    const wrapperTop = wrapper.getBoundingClientRect().top + window.scrollY;
     const viewportH = window.innerHeight;
-    // How far the user has scrolled *into* the wrapper (0 = just entered, wrapperH - viewportH = end)
-    const wrapperH = wrapper.scrollHeight; // total sticky height
+    const wrapperH = wrapper.scrollHeight;
     const scrollableDistance = wrapperH - viewportH;
+
     if (scrollableDistance <= 0) {
-      setActiveIndex(0);
+      track.style.transform = 'translateX(0)';
+      onActiveChangeRef.current?.(panels[0]?.id);
       return;
     }
+
     const scrolledIn = window.scrollY - wrapperTop;
     const progress = Math.max(0, Math.min(1, scrolledIn / scrollableDistance));
+
+    const translateX = -(progress * (panelCount - 1) * 100);
+    track.style.transform = `translateX(${translateX}vw)`;
+
     const idx = Math.min(panelCount - 1, Math.floor(progress * panelCount));
-    setActiveIndex(idx);
-  }, [panelCount]);
+    if (panels[idx]) {
+      onActiveChangeRef.current?.(panels[idx].id);
+    }
+  }, [panelCount, panels]);
 
   useEffect(() => {
     const onScroll = () => {
-      computeActiveIndex();
+      applyScrollTransform();
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    computeActiveIndex();
+    applyScrollTransform();
     return () => window.removeEventListener('scroll', onScroll);
-  }, [computeActiveIndex]);
+  }, [applyScrollTransform]);
 
-  useEffect(() => {
-    if (onActiveChange && panels[activeIndex]) {
-      onActiveChange(panels[activeIndex].id);
-    }
-  }, [activeIndex, panels, onActiveChange]);
-
-  /** Navigate to a specific panel by id (called from nav clicks) */
   const scrollToPanel = useCallback(
     (panelId: string) => {
       const idx = panels.findIndex((p) => p.id === panelId);
@@ -86,9 +94,14 @@ const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = ({
       const scrollableDistance = wrapperH - viewportH;
       if (scrollableDistance <= 0) return;
 
-      // Target: scroll to the point where this panel fills the sticky viewport
-      const progress = idx / panelCount;
+      const progress = idx / (panelCount - 1);
       const targetY = wrapperTop + progress * scrollableDistance;
+
+      // Reset internal panel scroll
+      panels.forEach((p) => {
+        const el = panelRefs.current.get(p.id);
+        if (el) el.scrollTop = 0;
+      });
 
       const lenis = (window as any).lenis;
       if (lenis) {
@@ -97,10 +110,9 @@ const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = ({
         window.scrollTo({ top: targetY, behavior: 'smooth' });
       }
     },
-    [panels]
+    [panels, panelCount]
   );
 
-  // Expose scrollToPanel globally so App.tsx nav can call it
   useEffect(() => {
     (window as any).__horizontalScroll = (window as any).__horizontalScroll || {};
     (window as any).__horizontalScroll[id] = scrollToPanel;
@@ -109,18 +121,56 @@ const HorizontalScrollSection: React.FC<HorizontalScrollSectionProps> = ({
     };
   }, [id, scrollToPanel]);
 
-  const trackWidth = `${panelCount * 100}vw`;
+  const handlePanelWheel = useCallback((panelId: string, e: React.WheelEvent) => {
+    const el = panelRefs.current.get(panelId);
+    if (!el) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    const atTop = scrollTop <= 1;
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+
+    const scrollingDown = e.deltaY > 0;
+    const scrollingUp = e.deltaY < 0;
+
+    // At boundary → let event bubble to window (drives horizontal)
+    if ((scrollingDown && atBottom) || (scrollingUp && atTop)) {
+      return; // don't preventDefault — let it bubble
+    }
+
+    // Not at boundary → consume for local scroll
+    e.stopPropagation();
+  }, []);
 
   return (
-    <div ref={wrapperRef} style={{ height: `${panelCount * 100}vh` }} className="relative">
+    <div
+      ref={wrapperRef}
+      style={{ height: `${panelCount * PANEL_SCROLL_BUDGET}vh` }}
+      className={`relative ${className}`}
+    >
+      {/* Sticky viewport — pins to screen */}
       <div className="sticky top-0 overflow-hidden" style={{ width: '100vw', height: '100vh' }}>
-        <div ref={trackRef} className="flex h-full" style={{ width: trackWidth }}>
+        {/* Wide track — slides left via translateX */}
+        <div
+          ref={trackRef}
+          className="flex h-full will-change-transform"
+          style={{ width: `${panelCount * 100}vw` }}
+        >
           {panels.map((panel) => (
             <div
               key={panel.id}
-              id={`panel-${panel.id}`}
-              className="flex-shrink-0 w-screen h-full overflow-y-auto"
-              style={{ width: '100vw' }}
+              id={`section-${panel.id}`}
+              ref={(el) => {
+                if (el) panelRefs.current.set(panel.id, el);
+                else panelRefs.current.delete(panel.id);
+              }}
+              className="flex-shrink-0"
+              style={{
+                width: '100vw',
+                height: '100vh',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+              }}
+              onWheel={handlePanelWheel.bind(null, panel.id)}
             >
               {panel.node}
             </div>

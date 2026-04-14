@@ -3,15 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { AnimatePresence } from 'motion/react';
 
 // Components
 import { CustomCursor } from './components/cursor';
 import { SmoothScroll, HUDOverlay } from './components/layout';
 import LandingPage from './components/LandingPage';
-import LoadingScreen from './components/LoadingScreen';
+import HorizontalScrollSection from './components/HorizontalScrollSection';
 import { Navbar, NavOverlay } from './components/navbar';
 import TerminalOverlay from './components/TerminalOverlay';
 
@@ -28,21 +27,43 @@ import ContactPage from './pages/ContactPage';
 // Lib
 import { trackEvent } from './utils/analytics';
 import type { Page, AppState, Project } from './lib/types';
+import { motion } from 'motion/react';
 
+const HORIZONTAL_IDS = ['agents', 'missions', 'core', 'career'];
 const EASE_EXPO: [number, number, number, number] = [0.22, 1, 0.36, 1];
-
-// --- Main App ---
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('standby');
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const selectedProjectRef = useRef(selectedProject);
 
-  const handleSelectProject = (project: Project) => {
+  // Keep ref in sync for scroll observer
+  useEffect(() => {
+    selectedProjectRef.current = selectedProject;
+  }, [selectedProject]);
+
+  const handleSelectProject = useCallback((project: Project) => {
     setSelectedProject(project);
     setCurrentPage('mission-detail');
-  };
+  }, []);
+
+  /** Build a MissionsPage that actually selects projects */
+  const missionsPageNode = useMemo(
+    () => <MissionsPage onSelectProject={handleSelectProject} />,
+    [handleSelectProject]
+  );
+
+  const horizontalPanels = useMemo(
+    () => [
+      { id: 'agents', node: <AgentsPage /> },
+      { id: 'missions', node: missionsPageNode },
+      { id: 'core', node: <SystemsCorePage /> },
+      { id: 'career', node: <CareerPage /> },
+    ],
+    [missionsPageNode]
+  );
 
   const executeNav = (p: Page) => {
     if (p === 'mission-detail') return;
@@ -52,39 +73,67 @@ export default function App() {
     if (selectedProject) setSelectedProject(null);
 
     const lenis = (window as any).lenis;
+    const isHorizontal = HORIZONTAL_IDS.includes(p);
 
-    setTimeout(() => {
-      const el = document.getElementById(p);
-      if (!el) return;
-      const targetY = el.getBoundingClientRect().top + window.scrollY;
-      if (lenis) {
-        lenis.scrollTo(targetY, { duration: 1.2 });
-      } else {
-        el.scrollIntoView({ behavior: 'smooth' });
+    if (isHorizontal) {
+      // Navigate to the horizontal block, then to the specific panel
+      // Use rAF retry to ensure HorizontalScrollSection's effect has registered
+      const tryNav = () => {
+        const hs = (window as any).__horizontalScroll?.['horizontal-block'];
+        if (hs) {
+          hs(p);
+        } else {
+          requestAnimationFrame(tryNav);
+        }
+      };
+      tryNav();
+    } else {
+      // Normal vertical section
+      const el = document.getElementById(`section-${p}`) || document.getElementById(p);
+      if (el) {
+        const targetY = el.getBoundingClientRect().top + window.scrollY;
+        if (lenis) {
+          lenis.scrollTo(targetY, { duration: 1.2 });
+        } else {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
       }
-    }, 50);
+    }
 
     setCurrentPage(p);
   };
 
-  // Track which section is currently in the viewport centre for nav highlighting
+  // Track which section is currently in the viewport
   useEffect(() => {
-    if (appState !== 'ready' || selectedProject) return;
-    const ids: Page[] = ['home', 'agents', 'missions', 'core', 'career', 'docs', 'contact'];
+    if (appState !== 'ready') return;
+    if (selectedProjectRef.current) return;
+
+    const verticalIds: Page[] = ['home', 'docs', 'contact'];
+
+    // IntersectionObserver for vertical sections
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) setCurrentPage(entry.target.id as Page);
+          if (entry.isIntersecting) {
+            setCurrentPage(entry.target.id.replace('section-', '') as Page);
+          }
         });
       },
-      { rootMargin: '-45% 0px -45% 0px', threshold: 0 }
+      { rootMargin: '-40% 0px -40% 0px', threshold: 0 }
     );
-    ids.forEach((id) => {
-      const el = document.getElementById(id);
+
+    verticalIds.forEach((id) => {
+      const el = document.getElementById(`section-${id}`) || document.getElementById(id);
       if (el) observer.observe(el);
     });
+
     return () => observer.disconnect();
-  }, [appState, selectedProject]);
+  }, [appState]);
+
+  // Horizontal active change handler
+  const handleHorizontalActiveChange = (panelId: string) => {
+    setCurrentPage(panelId as Page);
+  };
 
   const handleBackToMissions = () => {
     setSelectedProject(null);
@@ -160,25 +209,27 @@ export default function App() {
                       exit={{ opacity: 0 }}
                       className="flex flex-col w-full"
                     >
-                      <section id="home" className="bg-val-dark">
+                      {/* Vertical: Home */}
+                      <section id="section-home" className="bg-val-dark">
                         <HomePage setPage={executeNav} />
                       </section>
-                      <section id="agents" className="bg-val-dark">
-                        <AgentsPage />
-                      </section>
-                      <section id="missions" className="bg-val-dark">
-                        <MissionsPage onSelectProject={handleSelectProject} />
-                      </section>
-                      <section id="core" className="bg-val-dark">
-                        <SystemsCorePage />
-                      </section>
-                      <section id="career" className="bg-val-dark">
-                        <CareerPage />
-                      </section>
-                      <section id="docs" className="bg-val-dark">
+
+                      {/* Horizontal Block: Agents → Missions → Core → Career */}
+                      <div id="horizontal-block" className="bg-val-dark">
+                        <HorizontalScrollSection
+                          id="horizontal-block"
+                          panels={horizontalPanels}
+                          onActiveChange={handleHorizontalActiveChange}
+                        />
+                      </div>
+
+                      {/* Vertical: Docs */}
+                      <section id="section-docs" className="bg-val-dark">
                         <DocsPage />
                       </section>
-                      <section id="contact" className="bg-val-dark">
+
+                      {/* Vertical: Contact */}
+                      <section id="section-contact" className="bg-val-dark">
                         <ContactPage />
                       </section>
                     </motion.div>

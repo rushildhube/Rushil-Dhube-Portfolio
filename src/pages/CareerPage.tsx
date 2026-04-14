@@ -18,26 +18,26 @@ const CareerPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 w-full">
+    <div className="min-h-screen py-8 px-6 md:px-12 lg:px-24 w-full">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-16">
+        <div className="flex items-center gap-4 mb-12">
           <div className="w-2 h-8 bg-val-red"></div>
           <h2 className="text-val-red text-sm font-black tracking-[0.4em] uppercase">
             SERVICE_HISTORY // COMBAT_LOGS
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {stats.map((stat, idx) => (
             <ScrollReveal key={idx} direction="up">
-              <div className="glass-panel p-8 border-b-2 border-val-red group hover:bg-val-red/5 transition-colors">
+              <div className="glass-panel p-6 border-b-2 border-val-red group hover:bg-val-red/5 transition-colors">
                 <div className="text-[10px] font-mono text-val-light/60 uppercase tracking-[0.3em] mb-2">
                   {stat.label}
                 </div>
-                <div className="text-4xl font-display font-black text-val-red tracking-tighter italic">
+                <div className="text-3xl font-display font-black text-val-red tracking-tighter italic">
                   {stat.value}
                 </div>
-                <div className="mt-2 text-[11px] font-mono text-val-light/50 uppercase tracking-[0.25em]">
+                <div className="mt-2 text-[10px] font-mono text-val-light/50 uppercase tracking-[0.25em]">
                   {stat.sub}
                 </div>
               </div>
@@ -45,11 +45,11 @@ const CareerPage: React.FC = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           {/* Experience & Education */}
-          <div className="lg:col-span-7 space-y-20">
+          <div className="lg:col-span-7 space-y-16">
             {/* Professional Experience */}
-            <div className="space-y-12">
+            <div className="space-y-10">
               <div className="flex items-center gap-6">
                 <div className="w-12 h-12 glass-panel flex items-center justify-center border-val-red/30">
                   <Briefcase className="text-val-red" size={24} />
@@ -135,7 +135,7 @@ const CareerPage: React.FC = () => {
             </div>
 
             {/* Education History */}
-            <div className="space-y-12">
+            <div className="space-y-10">
               <div className="flex items-center gap-6">
                 <div className="w-12 h-12 glass-panel flex items-center justify-center border-val-red/30">
                   <Layers className="text-val-red" size={24} />
@@ -208,8 +208,8 @@ const CareerPage: React.FC = () => {
           </div>
 
           {/* Loadout & Skills */}
-          <div className="lg:col-span-5 space-y-16">
-            <div className="space-y-12">
+          <div className="lg:col-span-5 space-y-12">
+            <div className="space-y-10">
               <div className="flex items-center gap-6">
                 <div className="w-12 h-12 glass-panel flex items-center justify-center border-val-red/30">
                   <Zap className="text-val-red" size={24} />

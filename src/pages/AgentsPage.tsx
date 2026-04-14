@@ -114,7 +114,7 @@ const AgentsPage: React.FC = () => {
   }, [detailedAgent]);
 
   return (
-    <div className="min-h-screen pt-32 pb-12 px-6 md:px-12 lg:px-24 flex flex-col items-center">
+    <div className="min-h-screen py-8 px-6 md:px-12 lg:px-24 flex flex-col items-center">
       <div className="max-w-[1400px] w-full">
         <ScrollReveal direction="left">
           <div className="flex items-center gap-4 mb-16">
@@ -125,7 +125,7 @@ const AgentsPage: React.FC = () => {
           </div>
         </ScrollReveal>
 
-        <div className="flex flex-col lg:flex-row h-[1400px] lg:h-[750px] w-full gap-4 lg:gap-6">
+        <div className="flex flex-col lg:flex-row h-[300px] md:h-[500px] lg:h-[600px] w-full gap-4 lg:gap-6">
           {agents.map((agent) => {
             const isActive = expandedAgent === agent.id;
             return (

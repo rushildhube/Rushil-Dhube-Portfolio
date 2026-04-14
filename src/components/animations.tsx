@@ -137,7 +137,7 @@ export const StaggeredText: React.FC<{
             animate={{ y: 0, opacity: 1, rotateX: 0, filter: 'blur(0px)' }}
             transition={{
               duration: 1.2,
-              delay: delay + i * (by === 'word' ? 0.08 : 0.02),
+              delay: delay + i * (by === 'word' ? 0.08 : 0.06),
               ease: EASE_EXPO,
             }}
             className="inline-block origin-bottom"

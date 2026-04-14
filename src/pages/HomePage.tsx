@@ -6,7 +6,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { User, Github, Linkedin, Mail, FileText, Target } from 'lucide-react';
-import { Magnetic, GlitchText, StaggeredText, TextReveal } from '../components/animations';
+import { Magnetic, StaggeredText, TextReveal } from '../components/animations';
 import { FiverrLogo } from '../components/icons';
 import { PROFILE_POSITIONING } from '../lib/data';
 import type { Page } from '../lib/types';
@@ -47,8 +47,8 @@ const HomePage: React.FC<{ setPage: (p: Page) => void }> = ({ setPage }) => {
           </div>
 
           <h1 className="text-[clamp(3rem,12vw,8.5rem)] font-display font-black leading-[0.85] mb-6 tracking-tighter">
-            <GlitchText className="block">RUSHIL</GlitchText>
-            <StaggeredText text="DHUBE" delay={0.5} by="char" className="block" />
+            <StaggeredText text="RUSHIL" delay={0.2} by="char" className="block" />
+            <StaggeredText text="DHUBE" delay={0.55} by="char" className="block" />
           </h1>
 
           <div className="flex items-center w-full gap-4 mb-8">
